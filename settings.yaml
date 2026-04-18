@@ -1,0 +1,28 @@
+project:
+  name: law_qa_rag
+
+corpus:
+  type: federal_laws_only
+
+embedding:
+  model: intfloat/multilingual-e5-base
+  dim: 768
+
+chunking:
+  chunk_size: 700
+  overlap: 80
+
+llm:
+  model: GigaChat-2
+
+retrieval:
+  top_k: 10
+  sparse_enabled: true
+  dense_enabled: true
+  hybrid_method: rrf
+
+database:
+  host: localhost
+  port: 5432
+  dbname: rag_laws
+  user: rag_user
