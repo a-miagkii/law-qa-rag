@@ -5,6 +5,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- =========================
 -- USERS
 -- =========================
+-- For MVP you can create one technical user.
+-- The table is useful for query history and feedback.
 CREATE TABLE IF NOT EXISTS users (
     id bigserial PRIMARY KEY,
     external_uid varchar(128) NOT NULL UNIQUE,
@@ -14,36 +16,80 @@ CREATE TABLE IF NOT EXISTS users (
 -- =========================
 -- ACTS
 -- =========================
+-- Metadata for the custom corpus of codes and, later, thematic federal laws.
+-- No source_nd/source_id/source_url: those fields were tied to RusLawOD or external IDs.
 CREATE TABLE IF NOT EXISTS acts (
     id bigserial PRIMARY KEY,
-    source_nd varchar(128) NOT NULL UNIQUE,
-    doc_type varchar(64) NOT NULL,
+
+    canonical_key varchar(255) NOT NULL UNIQUE,
+
+    act_kind varchar(64) NOT NULL CHECK (
+        act_kind IN (
+            'codex',
+            'federal_law',
+            'federal_constitutional_law',
+            'other'
+        )
+    ),
+
+    doc_type varchar(128) NOT NULL,
     title text NOT NULL,
-    issued_by varchar(255),
     doc_number varchar(64) NOT NULL,
     doc_date date NOT NULL,
-    status varchar(64) NOT NULL,
-    source_url text,
+
+    official_text_kind varchar(128),
+
+    edition_as_of date NOT NULL,
+    edition_note text,
+    status varchar(64) NOT NULL DEFAULT 'unknown' CHECK (
+        status IN (
+            'actual',
+            'actual_with_future_editions',
+            'inactive',
+            'unknown'
+        )
+    ),
+    has_future_editions boolean NOT NULL DEFAULT false,
+
+    source_file text NOT NULL,
+
     imported_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- =========================
 -- CHUNKS
--- vector(768) под E5-base
 -- =========================
+-- chunks stores search fragments after article-aware chunking, not raw parser nodes.
 CREATE TABLE IF NOT EXISTS chunks (
     id bigserial PRIMARY KEY,
+
     act_id bigint NOT NULL REFERENCES acts(id) ON DELETE CASCADE,
     chunk_index int NOT NULL CHECK (chunk_index >= 0),
+
     text text NOT NULL,
-    start_char int CHECK (start_char >= 0),
-    end_char int CHECK (end_char >= start_char),
-    token_count int NOT NULL CHECK (token_count > 0),
+
     structure_ref text,
+    article_no varchar(32),
+    clause_range varchar(64),
+
+    -- Source paragraph anchors from parsed JSON, e.g. ["p77", "p78"].
+    -- Useful for citation highlighting on the source page.
+    source_anchors jsonb NOT NULL DEFAULT '[]'::jsonb,
+
+    start_node_order int CHECK (start_node_order >= 0),
+    end_node_order int CHECK (end_node_order >= start_node_order),
+
+    token_count int NOT NULL CHECK (token_count > 0),
+
     embedding vector(768),
-    search_vector tsvector NOT NULL,
-    embedding_model varchar(128) NOT NULL,
+    embedding_model varchar(128),
+
+    search_vector tsvector GENERATED ALWAYS AS (
+        to_tsvector('russian', coalesce(text, ''))
+    ) STORED,
+
     hash varchar(64) NOT NULL UNIQUE,
+
     UNIQUE (act_id, chunk_index)
 );
 
@@ -121,8 +167,27 @@ CREATE TABLE IF NOT EXISTS experiment_runs (
 -- =========================
 -- INDEXES
 -- =========================
+CREATE INDEX IF NOT EXISTS idx_acts_kind
+    ON acts (act_kind);
+
 CREATE INDEX IF NOT EXISTS idx_acts_number_date
     ON acts (doc_number, doc_date);
+
+CREATE INDEX IF NOT EXISTS idx_acts_edition_as_of
+    ON acts (edition_as_of);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_act_id
+    ON chunks (act_id);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_article_no
+    ON chunks (article_no);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_search_vector
+    ON chunks USING gin (search_vector);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_embedding
+    ON chunks USING ivfflat (embedding vector_cosine_ops)
+    WITH (lists = 100);
 
 CREATE INDEX IF NOT EXISTS idx_queries_user_created_at
     ON queries (user_id, created_at DESC);
@@ -139,17 +204,7 @@ CREATE INDEX IF NOT EXISTS idx_answer_citations_chunk_id
 CREATE INDEX IF NOT EXISTS idx_feedback_answer_id
     ON feedback (answer_id);
 
-CREATE INDEX IF NOT EXISTS idx_chunks_act_id
-    ON chunks (act_id);
-
 CREATE INDEX IF NOT EXISTS idx_experiment_runs_experiment_query
     ON experiment_runs (experiment_id, query_id);
-
-CREATE INDEX IF NOT EXISTS idx_chunks_search_vector
-    ON chunks USING gin (search_vector);
-
-CREATE INDEX IF NOT EXISTS idx_chunks_embedding
-    ON chunks USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
 
 COMMIT;
