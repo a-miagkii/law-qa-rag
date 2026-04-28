@@ -34,3 +34,6 @@ build/
 # Local data (too large/generated for regular Git)
 data/raw_ruslawod/
 data/manifests/*.csv
+notebooks
+raw_codes
+parsed_json
