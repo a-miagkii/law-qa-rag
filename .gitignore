@@ -32,8 +32,9 @@ build/
 *.log
 
 # Local data (too large/generated for regular Git)
-data/raw_ruslawod/
-data/manifests/*.csv
+data/chunks_json/
+data/parsed_json/
+data/raw_codes/
+
+
 notebooks
-raw_codes
-parsed_json
