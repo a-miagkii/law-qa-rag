@@ -5,8 +5,6 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- =========================
 -- USERS
 -- =========================
--- For MVP you can create one technical user.
--- The table is useful for query history and feedback.
 CREATE TABLE IF NOT EXISTS users (
     id bigserial PRIMARY KEY,
     external_uid varchar(128) NOT NULL UNIQUE,
@@ -16,8 +14,6 @@ CREATE TABLE IF NOT EXISTS users (
 -- =========================
 -- ACTS
 -- =========================
--- Metadata for the custom corpus of codes and, later, thematic federal laws.
--- No source_nd/source_id/source_url: those fields were tied to RusLawOD or external IDs.
 CREATE TABLE IF NOT EXISTS acts (
     id bigserial PRIMARY KEY,
 
@@ -41,6 +37,7 @@ CREATE TABLE IF NOT EXISTS acts (
 
     edition_as_of date NOT NULL,
     edition_note text,
+
     status varchar(64) NOT NULL DEFAULT 'unknown' CHECK (
         status IN (
             'actual',
@@ -49,9 +46,11 @@ CREATE TABLE IF NOT EXISTS acts (
             'unknown'
         )
     ),
+
     has_future_editions boolean NOT NULL DEFAULT false,
 
     source_file text NOT NULL,
+    source_system varchar(128) NOT NULL DEFAULT 'pravo.gov.ru html export',
 
     imported_at timestamptz NOT NULL DEFAULT now()
 );
@@ -59,21 +58,20 @@ CREATE TABLE IF NOT EXISTS acts (
 -- =========================
 -- CHUNKS
 -- =========================
--- chunks stores search fragments after article-aware chunking, not raw parser nodes.
 CREATE TABLE IF NOT EXISTS chunks (
     id bigserial PRIMARY KEY,
 
     act_id bigint NOT NULL REFERENCES acts(id) ON DELETE CASCADE,
+
     chunk_index int NOT NULL CHECK (chunk_index >= 0),
 
     text text NOT NULL,
 
     structure_ref text,
+
     article_no varchar(32),
     clause_range varchar(64),
 
-    -- Source paragraph anchors from parsed JSON, e.g. ["p77", "p78"].
-    -- Useful for citation highlighting on the source page.
     source_anchors jsonb NOT NULL DEFAULT '[]'::jsonb,
 
     start_node_order int CHECK (start_node_order >= 0),
@@ -81,7 +79,8 @@ CREATE TABLE IF NOT EXISTS chunks (
 
     token_count int NOT NULL CHECK (token_count > 0),
 
-    embedding vector(768),
+    embedding vector(1024),
+
     embedding_model varchar(128),
 
     search_vector tsvector GENERATED ALWAYS AS (
@@ -165,7 +164,7 @@ CREATE TABLE IF NOT EXISTS experiment_runs (
 );
 
 -- =========================
--- INDEXES
+-- INDEXES: ACTS
 -- =========================
 CREATE INDEX IF NOT EXISTS idx_acts_kind
     ON acts (act_kind);
@@ -176,6 +175,9 @@ CREATE INDEX IF NOT EXISTS idx_acts_number_date
 CREATE INDEX IF NOT EXISTS idx_acts_edition_as_of
     ON acts (edition_as_of);
 
+-- =========================
+-- INDEXES: CHUNKS
+-- =========================
 CREATE INDEX IF NOT EXISTS idx_chunks_act_id
     ON chunks (act_id);
 
@@ -185,10 +187,15 @@ CREATE INDEX IF NOT EXISTS idx_chunks_article_no
 CREATE INDEX IF NOT EXISTS idx_chunks_search_vector
     ON chunks USING gin (search_vector);
 
+
 CREATE INDEX IF NOT EXISTS idx_chunks_embedding
     ON chunks USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+    WITH (lists = 100)
+    WHERE embedding IS NOT NULL;
 
+-- =========================
+-- INDEXES: RAG LOGS
+-- =========================
 CREATE INDEX IF NOT EXISTS idx_queries_user_created_at
     ON queries (user_id, created_at DESC);
 
