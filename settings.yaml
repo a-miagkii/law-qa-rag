@@ -5,12 +5,28 @@ corpus:
   type: federal_laws_only
 
 embedding:
-  model: intfloat/multilingual-e5-base
-  dim: 768
+  embedding_model: BAAI/bge-m3
+  embedding_dim: 1024
 
 chunking:
-  chunk_size: 700
-  overlap: 80
+  default_profile: base
+  min_chunk_size_tokens: 100
+  include_act_title: true
+  include_path: true
+  long_node_min_body_tokens: 50
+  header_reserve_tokens: 80
+
+  small:
+    chunk_size_tokens: 500
+    overlap_tokens: 80
+
+  base:
+    chunk_size_tokens: 800
+    overlap_tokens: 120
+
+  large:
+    chunk_size_tokens: 1200
+    overlap_tokens: 150
 
 llm:
   model: GigaChat-2
