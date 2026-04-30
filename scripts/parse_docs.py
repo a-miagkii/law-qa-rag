@@ -12,6 +12,16 @@ from bs4 import BeautifulSoup, Tag
 SKIP_PARAGRAPH_CLASSES = {"A", "C", "T"}
 HEADING_CLASS = "H"
 TITLE_CLASS = "Z"
+SOURCE_SYSTEM = "pravo.gov.ru_html_doc"
+TEMP_FILE_PREFIXES = ("~$", ".")
+STRUCTURE_KEYS = (
+    "part",
+    "section",
+    "subsection",
+    "chapter",
+    "paragraph_group",
+    "article",
+)
 
 HEADER_RE = re.compile(
     r"^(?P<doc_type>.+?)\s+от\s+(?P<doc_date>\d{2}\.\d{2}\.\d{4})\s*№\s*(?P<doc_number>.+?)$"
@@ -28,10 +38,89 @@ def read_text_file(path: Path) -> str:
     raise RuntimeError(f"Cannot decode file: {path}")
 
 
+def write_json(path: Path, data: Any) -> None:
+    path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def should_skip_input_file(path: Path) -> bool:
+    """
+    Skips transient files produced by office editors and non-.doc inputs.
+    """
+    if path.suffix.lower() != ".doc":
+        return True
+    return path.name.startswith(TEMP_FILE_PREFIXES)
+
+
+def collect_input_files(input_path: Path) -> tuple[list[Path], list[Path]]:
+    candidates = [input_path] if input_path.is_file() else sorted(input_path.glob("*.doc"))
+    files: list[Path] = []
+    skipped: list[Path] = []
+
+    for path in candidates:
+        if should_skip_input_file(path):
+            skipped.append(path)
+            continue
+        files.append(path)
+
+    return files, skipped
+
+
 def normalize_space(text: str) -> str:
     text = text.replace("\xa0", " ")
     text = re.sub(r"\s+", " ", text)
+
+    # 7 .1 -> 7.1
+    text = re.sub(r"(?<=\d)\s+\.\s*(?=\d)", ".", text)
+
+    # седьмой .1 -> седьмой.1
+    text = re.sub(r"(?<=[А-Яа-яA-Za-z])\s+\.\s*(?=\d)", ".", text)
+
+    # 25.4 . -> 25.4.
+    text = re.sub(r"(?<=\d)\s+\.", ".", text)
+
+    # слово . -> слово.
+    text = re.sub(r"(?<=[А-Яа-яA-Za-z])\s+\.", ".", text)
+
+    # 12.1 ) -> 12.1)
+    text = re.sub(r"(?<=\d)\s+\)", ")", text)
+
+    # пробел перед запятой/точкой с запятой/двоеточием
+    text = re.sub(r"\s+([,;:])", r"\1", text)
+
+    text = re.sub(r"\(\s+", "(", text)
+    text = re.sub(r"\s+\)", ")", text)
+
     return text.strip()
+
+
+def make_empty_context() -> dict[str, str | None]:
+    return {key: None for key in STRUCTURE_KEYS}
+
+
+def update_context_for_heading(
+    ctx: dict[str, str | None],
+    node_type: str,
+    heading_text: str,
+) -> None:
+    resets_by_type: dict[str, tuple[str, ...]] = {
+        "part": ("part", "section", "subsection", "chapter", "paragraph_group", "article"),
+        "section": ("section", "subsection", "chapter", "paragraph_group", "article"),
+        "subsection": ("subsection", "chapter", "paragraph_group", "article"),
+        "chapter": ("chapter", "paragraph_group", "article"),
+        "paragraph_group": ("paragraph_group", "article"),
+        "article": ("article",),
+    }
+
+    keys_to_reset = resets_by_type.get(node_type)
+    if not keys_to_reset:
+        return
+
+    for key in keys_to_reset:
+        ctx[key] = None
+    ctx[node_type] = heading_text
 
 
 def to_iso_date(date_str: str | None) -> str | None:
@@ -61,10 +150,48 @@ def normalize_superscripts(tag: Tag) -> Tag:
     return cloned
 
 
+LOST_FORCE_RE = re.compile(
+    r"(утратил[ао]?|утратили|утративш\w+)\s+сил",
+    flags=re.IGNORECASE,
+)
+
+
+def has_lost_force_marker(text: str) -> bool:
+    return bool(LOST_FORCE_RE.search(normalize_space(text)))
+
+
+def normalize_lost_force_marker(text: str) -> str:
+    """
+    Сохраняем юридически важный факт утраты силы,
+    но убираем длинную ссылку на закон-изменение.
+    """
+    lower = normalize_space(text).lower()
+
+    if "статья" in lower:
+        return "Утратила силу."
+    if "часть" in lower:
+        return "Часть утратила силу."
+    if "пункт" in lower:
+        return "Пункт утратил силу."
+    if "подпункт" in lower:
+        return "Подпункт утратил силу."
+    if "абзац" in lower:
+        return "Абзац утратил силу."
+
+    return "Утратила силу."
+
+
 def remove_editorial_spans(tag: Tag) -> Tag:
     cloned = normalize_superscripts(tag)
+
     for bad in cloned.select("span.mark, span.markx"):
-        bad.decompose()
+        marker_text = normalize_space(bad.get_text(" ", strip=True))
+
+        if has_lost_force_marker(marker_text):
+            bad.replace_with(" " + normalize_lost_force_marker(marker_text) + " ")
+        else:
+            bad.decompose()
+
     return cloned
 
 
@@ -135,6 +262,40 @@ def parse_edition_line(edition_line: str | None) -> dict[str, Any]:
     return result
 
 
+def extract_top_lines(soup: BeautifulSoup) -> list[str]:
+    top = soup.find("div", id="topText")
+    if not top:
+        return []
+
+    return [
+        normalize_space(div.get_text(" ", strip=True))
+        for div in top.find_all("div")
+        if normalize_space(div.get_text(" ", strip=True))
+    ]
+
+
+def find_header_line(top_lines: list[str]) -> str | None:
+    for line in top_lines:
+        if HEADER_RE.match(normalize_space(line)):
+            return line
+    return top_lines[0] if top_lines else None
+
+
+def find_edition_line(top_lines: list[str]) -> str | None:
+    for line in top_lines:
+        lower = normalize_space(line).lower()
+        if "редакц" in lower or "актуаль" in lower or "утратил силу" in lower:
+            return line
+    return None
+
+
+def find_official_text_kind(top_lines: list[str]) -> str | None:
+    for line in top_lines:
+        if "официальный" in normalize_space(line).lower():
+            return normalize_space(line)
+    return None
+
+
 def extract_title(soup: BeautifulSoup) -> str | None:
     title_tag = soup.find("p", class_=TITLE_CLASS)
     if title_tag:
@@ -152,16 +313,9 @@ def extract_title(soup: BeautifulSoup) -> str | None:
 
 
 def parse_act_metadata(soup: BeautifulSoup, path: Path) -> dict[str, Any]:
-    top = soup.find("div", id="topText")
-    top_lines: list[str] = []
-    if top:
-        top_lines = [
-            normalize_space(div.get_text(" ", strip=True))
-            for div in top.find_all("div")
-            if normalize_space(div.get_text(" ", strip=True))
-        ]
-    header = parse_header_line(top_lines[0] if len(top_lines) >= 1 else None)
-    edition = parse_edition_line(top_lines[2] if len(top_lines) >= 3 else None)
+    top_lines = extract_top_lines(soup)
+    header = parse_header_line(find_header_line(top_lines))
+    edition = parse_edition_line(find_edition_line(top_lines))
     title = extract_title(soup)
     act_kind = infer_act_kind(header.get("doc_type"), title)
     act: dict[str, Any] = {
@@ -171,16 +325,32 @@ def parse_act_metadata(soup: BeautifulSoup, path: Path) -> dict[str, Any]:
         "title": title,
         "doc_number": header.get("doc_number"),
         "doc_date": header.get("doc_date"),
-        "official_text_kind": top_lines[1] if len(top_lines) >= 2 else None,
+        "official_text_kind": find_official_text_kind(top_lines),
         "edition_as_of": edition["edition_as_of"],
         "edition_note": edition["edition_note"],
         "status": edition["status"],
         "has_future_editions": edition["has_future_editions"],
         "source_file": path.name,
+        "source_system": SOURCE_SYSTEM,
     }
     if header.get("header_line"):
         act["header_line"] = header["header_line"]
     return act
+
+
+def validate_parsed_document(parsed: dict[str, Any]) -> list[str]:
+    warnings: list[str] = []
+    act = parsed.get("act") or {}
+    nodes = parsed.get("nodes") or []
+
+    if not act.get("title"):
+        warnings.append("missing act title")
+    if not act.get("doc_date") or not act.get("doc_number"):
+        warnings.append("missing act date or number")
+    if not nodes:
+        warnings.append("no legal nodes parsed")
+
+    return warnings
 
 
 def parse_heading_text(text: str) -> tuple[str, str]:
@@ -237,41 +407,46 @@ def parse_document(path: Path) -> dict[str, Any]:
     html = read_text_file(path)
     soup = BeautifulSoup(html, "lxml")
     result: dict[str, Any] = {"act": parse_act_metadata(soup, path), "nodes": []}
-    current_context: dict[str, str | None] = {
-        "part": None,
-        "section": None,
-        "subsection": None,
-        "chapter": None,
-        "paragraph_group": None,
-        "article": None,
-    }
+    current_context = make_empty_context()
     order = 0
     for p in soup.find_all("p"):
         classes = p.get("class") or []
         cls = classes[0] if classes else ""
         pid = p.get("id")
         raw_text = normalize_space(p.get_text(" ", strip=True))
+        has_legal_status = has_lost_force_marker(raw_text)
         if not raw_text or raw_text == "РОССИЙСКАЯ ФЕДЕРАЦИЯ":
             continue
         text = get_clean_text(p)
         if not text:
             continue
-        if cls == TITLE_CLASS or cls in SKIP_PARAGRAPH_CLASSES:
+        if cls == TITLE_CLASS:
             continue
+
+        if cls in SKIP_PARAGRAPH_CLASSES and not has_legal_status:
+            continue
+
+        if cls == HEADING_CLASS and has_lost_force_marker(text) and not ARTICLE_RE.match(text):
+            clause_no, body_text = extract_clause_info(text)
+            node_type = "preamble" if is_preamble_context(current_context) else "paragraph"
+
+            result["nodes"].append({
+                "order": order,
+                "node_type": node_type,
+                "text": body_text,
+                "raw_text": text,
+                "source_anchor": pid,
+                "article_no": extract_article_no(current_context.get("article")),
+                "clause_no": clause_no,
+                "structure_ref": build_structure_ref(current_context, clause_no),
+                "context": deepcopy(current_context),
+            })
+            order += 1
+            continue
+
         if cls == HEADING_CLASS:
             node_type, heading_text = parse_heading_text(text)
-            if node_type == "part":
-                current_context.update({"part": heading_text, "section": None, "subsection": None, "chapter": None, "paragraph_group": None, "article": None})
-            elif node_type == "section":
-                current_context.update({"section": heading_text, "subsection": None, "chapter": None, "paragraph_group": None, "article": None})
-            elif node_type == "subsection":
-                current_context.update({"subsection": heading_text, "chapter": None, "paragraph_group": None, "article": None})
-            elif node_type == "chapter":
-                current_context.update({"chapter": heading_text, "paragraph_group": None, "article": None})
-            elif node_type == "paragraph_group":
-                current_context.update({"paragraph_group": heading_text, "article": None})
-            elif node_type == "article":
-                current_context["article"] = heading_text
+            update_context_for_heading(current_context, node_type, heading_text)
             result["nodes"].append({
                 "order": order,
                 "node_type": node_type,
@@ -303,13 +478,19 @@ def parse_document(path: Path) -> dict[str, Any]:
 
 def parse_path(input_path: Path, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    files = [input_path] if input_path.is_file() else sorted(input_path.glob("*.doc"))
+    files, skipped = collect_input_files(input_path)
+    for path in skipped:
+        print(f"[SKIP] {path.name}")
+    if not files:
+        raise RuntimeError(f"No .doc files found in {input_path}")
+
     manifest: list[dict[str, Any]] = []
     for path in files:
         parsed = parse_document(path)
         out_path = output_dir / f"{path.stem}.json"
-        out_path.write_text(json.dumps(parsed, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_json(out_path, parsed)
         act = parsed["act"]
+        warnings = validate_parsed_document(parsed)
         manifest.append({
             "source_file": act.get("source_file"),
             "json_file": out_path.name,
@@ -322,10 +503,13 @@ def parse_path(input_path: Path, output_dir: Path) -> None:
             "edition_as_of": act.get("edition_as_of"),
             "status": act.get("status"),
             "node_count": len(parsed["nodes"]),
+            "warnings": warnings,
         })
         print(f"[OK] {path.name} -> {out_path.name} ({len(parsed['nodes'])} nodes)")
+        for warning in warnings:
+            print(f"[WARN] {path.name}: {warning}")
     manifest_path = output_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_json(manifest_path, manifest)
     print(f"[OK] manifest -> {manifest_path.name}")
 
 
