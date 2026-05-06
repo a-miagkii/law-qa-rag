@@ -19,9 +19,11 @@ CREATE TABLE IF NOT EXISTS acts (
 
     act_kind varchar(64) NOT NULL CHECK (
         act_kind IN (
+            'constitution',
             'codex',
             'federal_law',
             'federal_constitutional_law',
+            'law_rf',
             'other'
         )
     ),
