@@ -1,5 +1,7 @@
 BEGIN;
 
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- =========================
 -- USERS
 -- =========================
@@ -33,7 +35,7 @@ CREATE TABLE IF NOT EXISTS acts (
     doc_number varchar(64) NOT NULL,
     doc_date date NOT NULL,
 
-    official_text_kind varchar(128),
+    official_text_kind text,
 
     edition_as_of date NOT NULL,
     edition_note text,
@@ -50,7 +52,7 @@ CREATE TABLE IF NOT EXISTS acts (
     has_future_editions boolean NOT NULL DEFAULT false,
 
     source_file text NOT NULL,
-    source_system varchar(128) NOT NULL DEFAULT 'pravo.gov.ru html export',
+    source_system varchar(128) NOT NULL DEFAULT 'pravo.gov.ru_html_doc',
 
     imported_at timestamptz NOT NULL DEFAULT now()
 );
@@ -80,7 +82,6 @@ CREATE TABLE IF NOT EXISTS chunks (
     token_count int NOT NULL CHECK (token_count > 0),
 
     embedding vector(1024),
-
     embedding_model varchar(128),
 
     search_vector tsvector GENERATED ALWAYS AS (
@@ -88,6 +89,12 @@ CREATE TABLE IF NOT EXISTS chunks (
     ) STORED,
 
     hash varchar(64) NOT NULL UNIQUE,
+
+    CHECK (
+        (embedding IS NULL AND embedding_model IS NULL)
+        OR
+        (embedding IS NOT NULL AND embedding_model IS NOT NULL)
+    ),
 
     UNIQUE (act_id, chunk_index)
 );
@@ -97,9 +104,12 @@ CREATE TABLE IF NOT EXISTS chunks (
 -- =========================
 CREATE TABLE IF NOT EXISTS queries (
     id bigserial PRIMARY KEY,
+
     user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
     question text NOT NULL,
     normalized_question text,
+
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -108,11 +118,15 @@ CREATE TABLE IF NOT EXISTS queries (
 -- =========================
 CREATE TABLE IF NOT EXISTS answers (
     id bigserial PRIMARY KEY,
+
     query_id bigint NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
+
     answer_text text NOT NULL,
     llm_model varchar(128) NOT NULL,
     prompt_version varchar(64),
+
     latency_ms int NOT NULL CHECK (latency_ms >= 0),
+
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -121,10 +135,13 @@ CREATE TABLE IF NOT EXISTS answers (
 -- =========================
 CREATE TABLE IF NOT EXISTS answer_citations (
     id bigserial PRIMARY KEY,
+
     answer_id bigint NOT NULL REFERENCES answers(id) ON DELETE CASCADE,
     chunk_id bigint NOT NULL REFERENCES chunks(id) ON DELETE CASCADE,
+
     rank int NOT NULL CHECK (rank > 0),
     relevance_score double precision CHECK (relevance_score >= 0),
+
     quote text NOT NULL
 );
 
@@ -133,11 +150,15 @@ CREATE TABLE IF NOT EXISTS answer_citations (
 -- =========================
 CREATE TABLE IF NOT EXISTS feedback (
     id bigserial PRIMARY KEY,
+
     answer_id bigint NOT NULL REFERENCES answers(id) ON DELETE CASCADE,
     user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
     rating int NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment text,
+
     created_at timestamptz NOT NULL DEFAULT now(),
+
     UNIQUE (answer_id, user_id)
 );
 
@@ -146,9 +167,12 @@ CREATE TABLE IF NOT EXISTS feedback (
 -- =========================
 CREATE TABLE IF NOT EXISTS experiments (
     id bigserial PRIMARY KEY,
+
     name varchar(128) NOT NULL,
     description text,
+
     params_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -157,9 +181,12 @@ CREATE TABLE IF NOT EXISTS experiments (
 -- =========================
 CREATE TABLE IF NOT EXISTS experiment_runs (
     id bigserial PRIMARY KEY,
+
     experiment_id bigint NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
     query_id bigint NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
+
     metrics_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -186,7 +213,6 @@ CREATE INDEX IF NOT EXISTS idx_chunks_article_no
 
 CREATE INDEX IF NOT EXISTS idx_chunks_search_vector
     ON chunks USING gin (search_vector);
-
 
 CREATE INDEX IF NOT EXISTS idx_chunks_embedding
     ON chunks USING ivfflat (embedding vector_cosine_ops)
