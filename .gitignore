@@ -32,9 +32,7 @@ build/
 *.log
 
 # Local data (too large/generated for regular Git)
-data/chunks_json/
-data/parsed_json/
-data/raw_codes/
+data
 
 
 notebooks
