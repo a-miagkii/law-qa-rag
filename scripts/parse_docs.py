@@ -39,7 +39,10 @@ HEADER_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
-ARTICLE_RE = re.compile(r"^Статья\s+(?P<num>\d+(?:\.\d+)?)\.?", flags=re.IGNORECASE)
+ARTICLE_RE = re.compile(
+    r"^Статья\s+(?P<num>\d+(?:\.\d+)*(?:-\d+)?)\.?",
+    flags=re.IGNORECASE,
+)
 
 
 def read_text_file(path: Path) -> str:
@@ -115,6 +118,22 @@ def normalize_space(text: str) -> str:
 
     text = re.sub(r"\(\s+", "(", text)
     text = re.sub(r"\s+\)", ")", text)
+
+    # Статья 11 1-1 -> Статья 11.1-1
+    # Статья 333 32.1 -> Статья 333.32.1
+    while True:
+        new_text = re.sub(
+            r"^(Статья\s+\d+(?:\.\d+)*)\s+(?=\d)",
+            r"\1.",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if new_text == text:
+            break
+        text = new_text
+
+    # 11.1 -1 -> 11.1-1
+    text = re.sub(r"(?<=\d)\s*-\s*(?=\d)", "-", text)
 
     return text.strip()
 
@@ -756,6 +775,14 @@ def append_text_node(
         "context": deepcopy(current_context),
     })
 
+def is_lost_force_only_text(text: str) -> bool:
+    text = normalize_space(text).lower()
+    return bool(re.fullmatch(
+        r"(часть|пункт|подпункт|абзац)?\s*утратил[ао]?\s+силу\.?",
+        text,
+        flags=re.IGNORECASE,
+    ))
+
 
 def parse_document(path: Path) -> dict[str, Any]:
     html = read_text_file(path)
@@ -798,6 +825,17 @@ def parse_document(path: Path) -> dict[str, Any]:
 
         if is_constitution_chapter_title(cls, text, result["act"], current_context):
             merge_constitution_chapter_title(current_context, result["nodes"], text)
+            continue
+        
+        if is_lost_force_only_text(text) and not ARTICLE_RE.match(text):
+            append_text_node(
+                result=result,
+                order=order,
+                text=text,
+                source_anchor=pid,
+                current_context=current_context,
+            )
+            order += 1
             continue
 
         if is_heading_candidate(cls, text, act_kind):
