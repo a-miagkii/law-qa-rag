@@ -1,8 +1,2 @@
-beautifulsoup4>=4.14
-lxml>=6.1
-PyYAML>=6.0
-transformers>=5.7
-psycopg-binary>=3.3.4
-sentence-transformers
-torch
-numpy
+# Единственный источник зависимостей находится в pyproject.toml.
+-e .

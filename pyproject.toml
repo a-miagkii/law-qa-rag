@@ -8,6 +8,18 @@ version = "0.1.0"
 description = "RAG system for QA over Russian federal laws"
 readme = "README.md"
 requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.14",
+    "lxml>=6.1",
+    "PyYAML>=6.0",
+    "transformers>=5.7",
+    "psycopg-binary>=3.3.4",
+    "sentence-transformers",
+    "torch",
+    "numpy",
+    "gigachat",
+    "pydantic",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

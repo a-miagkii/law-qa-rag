@@ -27,6 +27,7 @@ build/
 .DS_Store
 .idea/
 .vscode/
+.VSCodeCounter/
 
 # Logs
 *.log

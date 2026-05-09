@@ -29,16 +29,23 @@ chunking:
     overlap_tokens: 150
 
 llm:
-  model: GigaChat-2
+  provider: gigachat
+  model: null
+  temperature: 0
+  max_output_tokens: 1200
+  context_token_budget: 6000
+  prompt_version: answer_v1
 
 retrieval:
+  method: weighted_hybrid
   top_k: 10
-  sparse_enabled: true
-  dense_enabled: true
-  hybrid_method: rrf
+  candidate_limit: 50
+  rrf_k: 60
+  sparse_weight: 0.4
+  dense_weight: 0.6
 
 database:
   host: localhost
-  port: 5432
+  port: 5433
   dbname: rag_laws
   user: rag_user
