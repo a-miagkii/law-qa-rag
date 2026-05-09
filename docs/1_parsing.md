@@ -1,12 +1,16 @@
-# Парсинг: `scripts/parse_docs.py`
+# Парсинг: `scripts/pipeline/parse_docs.py`
 
 `parse_docs.py` преобразует `.doc`-файлы, экспортированные с pravo.gov.ru как HTML, в нормализованные JSON-файлы для последующего чанкинга.
 
 Запуск:
 
 ```bash
-.venv/bin/python scripts/parse_docs.py data/raw_codes data/parsed_json
+.venv/bin/python scripts/pipeline/parse_docs.py data/raw_docs/codex data/parsed_json/parsed_codex
 ```
+
+Для полного локального корпуса повторите парсинг для нужных подпапок
+`data/raw_docs/*`, затем соберите общий каталог `data/parsed_json/parsed_all`.
+После этого переходите к чанкингу из `docs/2_chunking.md`.
 
 Результат:
 

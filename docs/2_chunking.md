@@ -1,11 +1,12 @@
-# Чанкинг: `scripts/chunk_json.py`
+# Чанкинг: `scripts/pipeline/chunk_json.py`
 
 `chunk_json.py` преобразует parsed JSON с юридическими актами в JSONL-файлы, готовые для загрузки в RAG-пайплайн.
 
 Запуск:
 
 ```bash
-.venv/bin/python scripts/chunk_json.py data/parsed_json data/chunks_json
+.venv/bin/python scripts/pipeline/chunk_json.py data/parsed_json/parsed_all data/chunks_json \
+  --settings settings.yaml
 ```
 
 Результат:
@@ -44,16 +45,19 @@ chunking:
     overlap_tokens: 150
 ```
 
-По умолчанию скрипт читает репозиторный `settings.yaml` и использует профиль из `chunking.default_profile`. Другой профиль можно выбрать явно:
+В командах выше и ниже `settings.yaml` передается явно. Основной профиль берется из `chunking.default_profile`. Другой профиль можно выбрать явно:
 
 ```bash
-.venv/bin/python scripts/chunk_json.py data/parsed_json data/chunks_json --chunk-profile large
+.venv/bin/python scripts/pipeline/chunk_json.py data/parsed_json/parsed_all data/chunks_json \
+  --settings settings.yaml \
+  --chunk-profile large
 ```
 
 CLI-флаги переопределяют значения из YAML:
 
 ```bash
-.venv/bin/python scripts/chunk_json.py data/parsed_json data/chunks_json \
+.venv/bin/python scripts/pipeline/chunk_json.py data/parsed_json/parsed_all data/chunks_json \
+  --settings settings.yaml \
   --chunk-profile base \
   --chunk-size 900 \
   --chunk-overlap 120
