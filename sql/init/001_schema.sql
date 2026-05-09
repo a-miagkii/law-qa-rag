@@ -1,7 +1,5 @@
 BEGIN;
 
-CREATE EXTENSION IF NOT EXISTS vector;
-
 -- =========================
 -- USERS
 -- =========================
