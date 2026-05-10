@@ -25,6 +25,7 @@ from law_qa_rag.generation import (
 from law_qa_rag.llm.base import LLMMessage, LLMResponse, TokenCount
 from law_qa_rag.prompting import build_answer_messages
 from law_qa_rag.retrieval import RetrievedChunk, search_dense, weighted_rrf_fusion
+from law_qa_rag import retrieval
 
 
 class FakeProvider:
@@ -149,6 +150,40 @@ class Block5GenerationTests(unittest.TestCase):
 
         self.assertIn("c.embedding_model = %(embedding_model)s::text", cur.query)
         self.assertEqual(cur.params["embedding_model"], "test/model")
+
+    def test_embedding_model_loader_is_cached_by_model_and_device(self) -> None:
+        calls: list[tuple[str, str]] = []
+
+        class FakeSentenceTransformer:
+            def __init__(self, model_name: str, device: str) -> None:
+                calls.append((model_name, device))
+
+        original_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
+
+        def fake_import(name: str, *args: object, **kwargs: object) -> object:
+            if name == "sentence_transformers":
+                class FakeModule:
+                    SentenceTransformer = FakeSentenceTransformer
+
+                return FakeModule()
+            return original_import(name, *args, **kwargs)
+
+        retrieval.clear_embedding_model_cache()
+        try:
+            import builtins
+
+            original = builtins.__import__
+            builtins.__import__ = fake_import
+            first = retrieval.load_embedding_model("test/model", "cpu")
+            second = retrieval.load_embedding_model("test/model", "cpu")
+            third = retrieval.load_embedding_model("test/model", "mps")
+        finally:
+            builtins.__import__ = original
+            retrieval.clear_embedding_model_cache()
+
+        self.assertIs(first, second)
+        self.assertIsNot(first, third)
+        self.assertEqual(calls, [("test/model", "cpu"), ("test/model", "mps")])
 
     def test_token_budget_drops_tail_chunks(self) -> None:
         config = AppConfig(

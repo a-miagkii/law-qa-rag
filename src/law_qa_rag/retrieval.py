@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 import numpy as np
@@ -107,11 +108,17 @@ def detect_device(requested: str) -> str:
     return "cpu"
 
 
+@lru_cache(maxsize=4)
 def load_embedding_model(model_name: str, device: str) -> Any:
     """Загружает SentenceTransformer-модель."""
     from sentence_transformers import SentenceTransformer
 
     return SentenceTransformer(model_name, device=device)
+
+
+def clear_embedding_model_cache() -> None:
+    """Очищает cache embedding-моделей для тестов и dev-перезагрузок."""
+    load_embedding_model.cache_clear()
 
 
 def embedding_to_pgvector(value: np.ndarray) -> str:
