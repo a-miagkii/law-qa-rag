@@ -103,7 +103,9 @@ class WebAppTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("RAG по федеральным нормативным актам", response.text)
-        self.assertIn("Вопрос по корпусу законов", response.text)
+        self.assertIn("Введите юридический вопрос…", response.text)
+        self.assertNotIn("Frame 1", response.text)
+        self.assertNotIn("LawRAG", response.text)
         self.assertNotIn("Спросите по правовому корпусу", response.text)
         self.assertNotIn("Идет поиск по корпусу и подготовка цитат.", response.text)
         self.assertIn("Что такое водные объекты общего пользования?", response.text)
@@ -167,7 +169,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Водный кодекс Российской Федерации", response.text)
-        self.assertIn("Цитировался в ответе #1", response.text)
+        self.assertIn("цитата #1", response.text)
         self.assertIn("Полный текст chunk", response.text)
 
 
