@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -13,8 +12,10 @@ import torch
 import yaml
 from sentence_transformers import SentenceTransformer
 
+from law_qa_rag.env import get_database_url
 
-DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "settings.yaml"
+
+DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[2] / "settings.yaml"
 DEFAULT_MODEL_NAME = "BAAI/bge-m3"
 DEFAULT_EMBEDDING_DIM = 1024
 
@@ -132,8 +133,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--db-url",
         type=str,
-        default=os.getenv("DATABASE_URL"),
-        help="PostgreSQL URL. Можно также передать через DATABASE_URL.",
+        default=get_database_url(required=False),
+        help="PostgreSQL URL. Если не передан, берется из DATABASE_URL или POSTGRES_* в .env.",
     )
 
     parser.add_argument(
@@ -333,7 +334,7 @@ def main() -> None:
 
     if not args.db_url:
         raise ValueError(
-            "Нужен URL БД. Передайте --db-url или задайте DATABASE_URL."
+            "Нужен URL БД. Передайте --db-url или заполните DATABASE_URL/POSTGRES_* в .env."
         )
 
     settings = read_settings(args.settings)

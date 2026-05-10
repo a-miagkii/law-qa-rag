@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from law_qa_rag.config import DEFAULT_SETTINGS_PATH, load_config
+from law_qa_rag.env import get_database_url
 from law_qa_rag.generation import generate_answer, generated_answer_to_json
 from law_qa_rag.llm.gigachat_client import (
     GigaChatProvider,
@@ -38,8 +38,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--db-url",
         type=str,
-        default=os.getenv("DATABASE_URL"),
-        help="PostgreSQL URL. Можно также передать через DATABASE_URL.",
+        default=get_database_url(required=False),
+        help="PostgreSQL URL. Если не передан, берется из DATABASE_URL или POSTGRES_* в .env.",
     )
     parser.add_argument(
         "--device",
@@ -57,7 +57,7 @@ def main() -> None:
     """Точка входа CLI."""
     args = parse_args()
     if not args.db_url:
-        raise ValueError("Нужен URL БД. Передайте --db-url или задайте DATABASE_URL.")
+        raise ValueError("Нужен URL БД. Передайте --db-url или заполните DATABASE_URL/POSTGRES_* в .env.")
 
     config = load_config(args.settings)
     provider = GigaChatProvider(model=config.llm.model)

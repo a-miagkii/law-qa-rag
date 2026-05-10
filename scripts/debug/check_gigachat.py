@@ -5,10 +5,11 @@ import sys
 from pathlib import Path
 
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from law_qa_rag.config import DEFAULT_SETTINGS_PATH, load_config
+from law_qa_rag.env import load_project_dotenv
 from law_qa_rag.llm.base import LLMMessage
 from law_qa_rag.llm.gigachat_client import GigaChatProvider, validate_model_available
 
@@ -45,6 +46,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     """Точка входа CLI."""
+    load_project_dotenv()
     args = parse_args()
     config = load_config(args.settings)
     provider = GigaChatProvider(model=config.llm.model)

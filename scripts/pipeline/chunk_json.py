@@ -23,7 +23,7 @@ STRUCTURAL_NODE_TYPES = {
 
 TEXT_NODE_TYPES = {"paragraph", "preamble"}
 
-DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "settings.yaml"
+DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[2] / "settings.yaml"
 
 
 @dataclass(frozen=True)

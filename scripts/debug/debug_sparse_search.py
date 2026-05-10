@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import os
 from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
+
+from law_qa_rag.env import get_database_url
 
 
 SPARSE_SEARCH_SQL = """
@@ -80,8 +81,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--db-url",
         type=str,
-        default=os.getenv("DATABASE_URL"),
-        help="PostgreSQL URL. Можно также передать через DATABASE_URL.",
+        default=get_database_url(required=False),
+        help="PostgreSQL URL. Если не передан, берется из DATABASE_URL или POSTGRES_* в .env.",
     )
 
     parser.add_argument(
@@ -189,7 +190,7 @@ def main() -> None:
 
     if not args.db_url:
         raise ValueError(
-            "Нужен URL БД. Передайте --db-url или задайте DATABASE_URL."
+            "Нужен URL БД. Передайте --db-url или заполните DATABASE_URL/POSTGRES_* в .env."
         )
 
     rows = search_sparse(
