@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.chunk_json import (
+from scripts.pipeline.chunk_json import (
     build_chunk_config,
     clause_sort_key,
     iter_input_files,

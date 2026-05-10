@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import unittest
 
-from scripts.load_corpus import positive_int
+from scripts.pipeline.load_corpus import positive_int
 
 
 class LoadCorpusTests(unittest.TestCase):

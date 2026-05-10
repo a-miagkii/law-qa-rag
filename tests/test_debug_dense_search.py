@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from scripts.debug_dense_search import (
+from scripts.debug.debug_dense_search import (
     build_embedding_config,
     count_embeddings_for_model,
     embedding_to_pgvector,

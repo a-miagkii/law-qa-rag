@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from scripts.debug_hybrid_search import (
+from scripts.debug.debug_hybrid_search import (
     build_embedding_config,
     count_embeddings_for_model,
     embedding_to_pgvector,

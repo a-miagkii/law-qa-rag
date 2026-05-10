@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.embed_chunks import (
+from scripts.pipeline.embed_chunks import (
     build_embedding_config,
     estimate_eta_seconds,
     format_duration,

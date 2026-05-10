@@ -6,7 +6,7 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from scripts.parse_docs import (
+from scripts.pipeline.parse_docs import (
     collect_input_files,
     parse_act_metadata,
 )

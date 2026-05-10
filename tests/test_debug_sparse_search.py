@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import unittest
 
-from scripts.debug_sparse_search import positive_int
+from scripts.debug.debug_sparse_search import positive_int
 
 
 class DebugSparseSearchTests(unittest.TestCase):
