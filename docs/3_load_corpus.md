@@ -26,12 +26,12 @@ data/chunks_json/
 Локальный пароль задается в `.env`. Значение `change_me` из `.env.example` нужно заменить на свой локальный пароль.
 
 ```bash
-source .env
-export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT:-5433}/${POSTGRES_DB}"
+cp .env.example .env
+# Заполните POSTGRES_PASSWORD в .env.
 docker compose up -d
 ```
 
-Порт снаружи берется из `POSTGRES_PORT`; в текущей конфигурации это `5433`.
+Порт снаружи берется из `POSTGRES_PORT`; в текущей конфигурации это `5433`. Скрипт автоматически читает `.env`: если `DATABASE_URL` не задан, он собирается из `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` и `POSTGRES_PASSWORD`.
 
 ## Пробный запуск (`--dry-run`)
 
@@ -49,14 +49,12 @@ docker compose up -d
 
 ```bash
 .venv/bin/python scripts/pipeline/load_corpus.py data/chunks_json \
-  --db-url "$DATABASE_URL"
 ```
 
 Если нужно полностью пересобрать корпус в БД:
 
 ```bash
 .venv/bin/python scripts/pipeline/load_corpus.py data/chunks_json \
-  --db-url "$DATABASE_URL" \
   --reset
 ```
 
@@ -104,6 +102,8 @@ docker compose up -d
 Быстрые SQL-проверки:
 
 ```bash
+source .env
+
 PGPASSWORD="$POSTGRES_PASSWORD" psql \
   -h localhost \
   -p "${POSTGRES_PORT:-5433}" \
@@ -125,6 +125,6 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql \
 
 `Missing file: data/chunks_json/acts.jsonl` — сначала выполните чанкинг из `docs/2_chunking.md`.
 
-`Database URL is required` — передайте `--db-url` или задайте `DATABASE_URL`.
+`Нужен URL БД` — передайте `--db-url` или заполните `DATABASE_URL`/`POSTGRES_*` в `.env`.
 
 Ошибка дубля `hash` обычно означает, что в `chunks.jsonl` попали одинаковые тексты chunk. Нужно проверять результат чанкинга, а не чинить это на этапе загрузки.

@@ -7,9 +7,11 @@
 ## Подготовка подключения
 
 ```bash
-source .env
-export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT:-5433}/${POSTGRES_DB}"
+cp .env.example .env
+# Заполните POSTGRES_PASSWORD в .env.
 ```
+
+Скрипт автоматически читает `.env`: если `DATABASE_URL` не задан, он собирается из `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` и `POSTGRES_PASSWORD`.
 
 Модель и размерность берутся из `settings.yaml`:
 
@@ -28,7 +30,6 @@ embedding:
 ```bash
 .venv/bin/python scripts/pipeline/embed_chunks.py \
   --settings settings.yaml \
-  --db-url "$DATABASE_URL" \
   --dry-run \
   --limit 8 \
   --device cpu
@@ -43,7 +44,6 @@ CPU-вариант:
 ```bash
 .venv/bin/python scripts/pipeline/embed_chunks.py \
   --settings settings.yaml \
-  --db-url "$DATABASE_URL" \
   --batch-size 8 \
   --device cpu
 ```
@@ -53,7 +53,6 @@ CPU-вариант:
 ```bash
 .venv/bin/python scripts/pipeline/embed_chunks.py \
   --settings settings.yaml \
-  --db-url "$DATABASE_URL" \
   --batch-size 16 \
   --device cuda
 ```
@@ -86,7 +85,7 @@ LIMIT ...
 ## Полезные параметры
 
 - `--settings` — путь к YAML-конфигу;
-- `--db-url` — PostgreSQL URL, можно заменить переменной `DATABASE_URL`;
+- `--db-url` — явный PostgreSQL URL; если не передан, используется `DATABASE_URL` или `POSTGRES_*` из `.env`;
 - `--model` — временно переопределить модель из `settings.yaml`;
 - `--embedding-dim` — временно переопределить ожидаемую размерность;
 - `--batch-size` — сколько chunks кодировать за один batch;
@@ -99,6 +98,8 @@ LIMIT ...
 Сколько chunks еще без embeddings:
 
 ```bash
+source .env
+
 PGPASSWORD="$POSTGRES_PASSWORD" psql \
   -h localhost \
   -p "${POSTGRES_PORT:-5433}" \
@@ -122,7 +123,7 @@ PGPASSWORD="$POSTGRES_PASSWORD" psql \
 
 ## Типовые проблемы
 
-`Нужен URL БД` — передайте `--db-url` или задайте `DATABASE_URL`.
+`Нужен URL БД` — передайте `--db-url` или заполните `DATABASE_URL`/`POSTGRES_*` в `.env`.
 
 Ошибка размерности embeddings означает, что `embedding.embedding_dim` не соответствует выбранной модели.
 
