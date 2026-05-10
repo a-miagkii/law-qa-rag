@@ -122,6 +122,10 @@ CREATE TABLE IF NOT EXISTS answers (
     answer_text text NOT NULL,
     llm_model varchar(128) NOT NULL,
     prompt_version varchar(64),
+    needs_clarification boolean NOT NULL DEFAULT false,
+    retrieval_method varchar(64),
+    retrieved_chunk_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+    dropped_chunk_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
 
     latency_ms int NOT NULL CHECK (latency_ms >= 0),
 
