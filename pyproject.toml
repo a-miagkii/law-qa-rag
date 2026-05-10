@@ -19,6 +19,12 @@ dependencies = [
     "numpy",
     "gigachat",
     "pydantic",
+    "fastapi",
+    "uvicorn[standard]",
+    "jinja2",
+    "python-multipart",
+    "python-dotenv",
+    "httpx",
 ]
 
 [tool.setuptools]
@@ -26,3 +32,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"law_qa_rag.web" = ["templates/*.html", "static/*.css", "static/*.js"]

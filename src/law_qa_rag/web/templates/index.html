@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Задать вопрос | RAG по федеральным нормативным актам{% endblock %}
+
+{% block content %}
+  <section class="question-panel">
+    <h1>Вопрос по корпусу законов</h1>
+    <form class="ask-form" method="post" action="{{ url_for('ask') }}" data-ask-form>
+      <textarea
+        name="question"
+        rows="3"
+        placeholder="Юридический вопрос по федеральным нормативным актам"
+        required
+      >{{ question or "" }}</textarea>
+      {% if error %}
+        <p class="error">{{ error }}</p>
+      {% endif %}
+      <div class="ask-footer">
+        <span class="ask-hint">Ответ будет построен по найденным фрагментам корпуса.</span>
+        <button class="submit-button" type="submit" data-loading-label="Формируем...">
+          <span>Получить ответ</span>
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="examples">
+    <div class="section-head">
+      <div>
+        <h2>Готовые вопросы</h2>
+        <p>Быстрый старт для проверки поиска и цитирования.</p>
+      </div>
+    </div>
+    <div class="example-list">
+      {% for example in examples %}
+        <form class="example-card" method="post" action="{{ url_for('ask') }}" data-ask-form>
+          <input type="hidden" name="question" value="{{ example }}">
+          <button class="example-button" type="submit" data-loading-label="Формируем ответ...">
+            <span class="example-mark" aria-hidden="true"></span>
+            <span>{{ example }}</span>
+          </button>
+        </form>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

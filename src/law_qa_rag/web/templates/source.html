@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Источник | {{ page.act.title }}{% endblock %}
+
+{% block content %}
+  <section class="source-header">
+    {% if page.answer_id %}
+      <a class="back-link" href="{{ url_for('answer_page', answer_id=page.answer_id) }}">К ответу</a>
+    {% else %}
+      <a class="back-link" href="{{ url_for('index') }}">На главную</a>
+    {% endif %}
+    <h1>{{ page.act.title }}</h1>
+    <dl class="source-details">
+      <div>
+        <dt>Вид</dt>
+        <dd>{{ page.act.doc_type }}</dd>
+      </div>
+      <div>
+        <dt>Номер</dt>
+        <dd>{{ page.act.doc_number }}</dd>
+      </div>
+      <div>
+        <dt>Дата</dt>
+        <dd>{{ page.act.doc_date }}</dd>
+      </div>
+      <div>
+        <dt>Редакция</dt>
+        <dd>{{ page.act.edition_as_of }}</dd>
+      </div>
+      <div>
+        <dt>Статус</dt>
+        <dd>{{ page.act.status }}</dd>
+      </div>
+    </dl>
+    {% if page.act.edition_note %}
+      <p class="edition-note">{{ page.act.edition_note }}</p>
+    {% endif %}
+  </section>
+
+  <section class="chunk-list">
+    {% for chunk in page.chunks %}
+      <article class="source-chunk {% if chunk.is_cited %}cited{% endif %}" id="chunk-{{ chunk.chunk_id }}">
+        <header>
+          <span>Chunk {{ chunk.chunk_index }}</span>
+          {% if chunk.is_cited %}
+            <strong>Цитировался в ответе #{{ chunk.citation_rank }}</strong>
+          {% endif %}
+        </header>
+        <p class="source-meta">
+          {{ chunk.structure_ref or "Структура не указана" }}
+          {% if chunk.article_no %} · статья {{ chunk.article_no }}{% endif %}
+          {% if chunk.clause_range %} · пункты {{ chunk.clause_range }}{% endif %}
+          · {{ chunk.token_count }} токенов
+        </p>
+        <div class="chunk-text">{{ chunk.text }}</div>
+      </article>
+    {% endfor %}
+  </section>
+{% endblock %}

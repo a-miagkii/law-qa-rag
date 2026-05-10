@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Ответ #{{ page.answer.answer_id }} | law-qa-rag{% endblock %}
+
+{% block content %}
+  <section class="answer-layout">
+    <article class="answer-main">
+      <a class="back-link" href="{{ url_for('index') }}">Новый вопрос</a>
+      <h1>{{ page.answer.question }}</h1>
+
+      {% if page.answer.needs_clarification or not page.citations %}
+        <div class="warning">
+          Контекста недостаточно для надежного ответа. Используйте ответ как указание на пробел в найденных источниках.
+        </div>
+      {% endif %}
+
+      <div class="answer-text">
+        {{ page.answer.answer_text }}
+      </div>
+
+      <dl class="answer-meta">
+        <div>
+          <dt>Метод retrieval</dt>
+          <dd>{{ page.answer.retrieval_method or "не указан" }}</dd>
+        </div>
+        <div>
+          <dt>Модель</dt>
+          <dd>{{ page.answer.llm_model }}</dd>
+        </div>
+        <div>
+          <dt>Prompt</dt>
+          <dd>{{ page.answer.prompt_version or "не указан" }}</dd>
+        </div>
+        <div>
+          <dt>Latency</dt>
+          <dd>{{ page.answer.latency_ms }} мс</dd>
+        </div>
+      </dl>
+    </article>
+
+    <aside class="citations">
+      <h2>Цитаты</h2>
+      {% if page.citations %}
+        {% for citation in page.citations %}
+          <article class="citation">
+            <div class="citation-rank">#{{ citation.rank }}</div>
+            <h3>{{ citation.act_title }}</h3>
+            <p class="source-meta">
+              № {{ citation.doc_number or "не указан" }},
+              дата {{ citation.doc_date or "не указана" }}
+            </p>
+            <p class="source-meta">{{ citation.structure_ref or "Структура не указана" }}</p>
+            {% if citation.article_no or citation.clause_range %}
+              <p class="source-meta">
+                Статья {{ citation.article_no or "не указана" }};
+                пункты {{ citation.clause_range or "не указаны" }}
+              </p>
+            {% endif %}
+            <blockquote>{{ citation.quote }}</blockquote>
+            <a
+              class="source-link"
+              href="{{ url_for('source_page', act_id=citation.act_id) }}?answer_id={{ page.answer.answer_id }}"
+            >Открыть источник</a>
+          </article>
+        {% endfor %}
+      {% else %}
+        <p class="muted">Модель не сослалась на chunks из контекста.</p>
+      {% endif %}
+    </aside>
+  </section>
+{% endblock %}
