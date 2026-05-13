@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -23,12 +24,16 @@ from law_qa_rag.generation import (
     parse_model_answer,
 )
 from law_qa_rag.llm.base import LLMMessage, LLMResponse, TokenCount
+from law_qa_rag.llm.gigachat_client import GigaChatProvider
 from law_qa_rag.prompting import build_answer_messages
 from law_qa_rag.retrieval import RetrievedChunk, search_dense, weighted_rrf_fusion
 from law_qa_rag import retrieval
 
 
 class FakeProvider:
+    def __init__(self) -> None:
+        self.count_token_calls: list[list[str]] = []
+
     def complete(
         self,
         messages: list[LLMMessage],
@@ -41,6 +46,7 @@ class FakeProvider:
         )
 
     def count_tokens(self, texts: list[str], model: str | None = None) -> list[TokenCount]:
+        self.count_token_calls.append(texts)
         counts = []
         for text in texts:
             tokens = 1000 if "bbbbbbbbbb" in text else 100
@@ -196,11 +202,34 @@ class Block5GenerationTests(unittest.TestCase):
             make_chunk(2, "b" * 500),
             make_chunk(3, "c" * 10),
         ]
+        provider = FakeProvider()
 
-        result = apply_token_budget("Что проверить?", chunks, config, FakeProvider())
+        result = apply_token_budget("Что проверить?", chunks, config, provider)
 
         self.assertEqual([chunk.chunk_id for chunk in result.selected_chunks], [1])
         self.assertEqual(result.dropped_chunk_ids, [2, 3])
+        self.assertEqual(len(provider.count_token_calls), 1)
+        self.assertEqual(len(provider.count_token_calls[0]), 3)
+
+    def test_gigachat_provider_reads_connection_env(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "GIGACHAT_CREDENTIALS": "secret",
+                "GIGACHAT_TIMEOUT": "150",
+                "GIGACHAT_MAX_RETRIES": "4",
+                "GIGACHAT_RETRY_BACKOFF_FACTOR": "2",
+                "GIGACHAT_VERIFY_SSL_CERTS": "false",
+            },
+        ):
+            kwargs = GigaChatProvider(model="test-model")._client_kwargs()
+
+        self.assertEqual(kwargs["model"], "test-model")
+        self.assertEqual(kwargs["credentials"], "secret")
+        self.assertEqual(kwargs["timeout"], 150.0)
+        self.assertEqual(kwargs["max_retries"], 4)
+        self.assertEqual(kwargs["retry_backoff_factor"], 2.0)
+        self.assertFalse(kwargs["verify_ssl_certs"])
 
     def test_prompt_contains_question_and_chunks(self) -> None:
         messages = build_answer_messages("Что проверить?", [make_chunk(7, "Важный текст")])

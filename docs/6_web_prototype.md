@@ -18,6 +18,7 @@ cp .env.example .env
 ```
 
 Web-приложение автоматически читает `.env`. Если `DATABASE_URL` не задан, он собирается из `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` и `POSTGRES_PASSWORD`.
+При SSL timeout или self-signed certificate для локальной разработки можно поставить `GIGACHAT_VERIFY_SSL_CERTS=false` и увеличить `GIGACHAT_TIMEOUT`.
 
 Для существующей БД, созданной до web-этапа, один раз примените миграцию:
 

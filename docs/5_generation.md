@@ -73,10 +73,20 @@ llm:
 
 ```bash
 GIGACHAT_CREDENTIALS=...
+GIGACHAT_TIMEOUT=120
+GIGACHAT_MAX_RETRIES=3
 ```
 
 `llm.model: null` означает, что используется модель GigaChat SDK по умолчанию.
 Если указать конкретное имя модели, `check_gigachat.py` и `generate_answer.py` проверят, что модель доступна аккаунту.
+
+Если локальная сеть подменяет SSL-сертификаты и SDK падает с `self-signed certificate`, для локальной разработки можно добавить:
+
+```bash
+GIGACHAT_VERIFY_SSL_CERTS=false
+```
+
+Для более строгого варианта укажите доверенный bundle через `GIGACHAT_CA_BUNDLE_FILE`.
 
 `context_token_budget` ограничивает prompt вместе с найденным контекстом. Если все chunks не помещаются, низкоранговый хвост отбрасывается и его ids попадают в `dropped_chunk_ids`.
 
@@ -140,4 +150,3 @@ Prompt v1 требует от модели:
 ```
 
 CLI автоматически читает `.env`. Если явно задан `DATABASE_URL`, используется он; иначе URL собирается из `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` и `POSTGRES_PASSWORD`.
-

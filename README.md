@@ -51,6 +51,16 @@ docker compose up -d
   --device cpu
 ```
 
+Если GigaChat падает на SSL handshake или self-signed certificate в локальной сети, временно задайте в `.env`:
+
+```bash
+GIGACHAT_VERIFY_SSL_CERTS=false
+GIGACHAT_TIMEOUT=120
+GIGACHAT_MAX_RETRIES=3
+```
+
+Это локальная настройка для разработки. В production лучше использовать корректный CA bundle через `GIGACHAT_CA_BUNDLE_FILE`.
+
 ## Веб-прототип
 
 Веб-прототип использует тот же generation pipeline, что и CLI, и сохраняет успешные запросы в `queries`, `answers` и `answer_citations`.

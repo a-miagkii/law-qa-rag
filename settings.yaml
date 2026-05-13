@@ -32,14 +32,14 @@ llm:
   provider: gigachat
   model: null
   temperature: 0
-  max_output_tokens: 1200
-  context_token_budget: 6000
+  max_output_tokens: 2500
+  context_token_budget: 5000
   prompt_version: answer_v1
 
 retrieval:
-  method: weighted_hybrid
-  top_k: 10
-  candidate_limit: 50
+  method: dense
+  top_k: 5
+  candidate_limit: 30
   rrf_k: 60
   sparse_weight: 0.4
   dense_weight: 0.6

@@ -1,23 +1,57 @@
 from __future__ import annotations
 
 import os
+import socket
+import ssl
 from typing import Any
+from urllib.error import URLError
 
 from law_qa_rag.llm.base import LLMMessage, LLMResponse, TokenCount
+
+
+DEFAULT_TIMEOUT_SECONDS = 120.0
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_RETRY_BACKOFF_FACTOR = 1.0
 
 
 class GigaChatProvider:
     """LLMProvider поверх официального GigaChat SDK."""
 
-    def __init__(self, model: str | None = None, timeout: float = 60.0) -> None:
+    def __init__(self, model: str | None = None, timeout: float | None = None) -> None:
         self.model = model
         self.timeout = timeout
 
     def _client_kwargs(self) -> dict[str, Any]:
         """Собирает параметры клиента, не дублируя env-конфиг SDK."""
-        kwargs: dict[str, Any] = {"timeout": self.timeout}
+        kwargs: dict[str, Any] = {
+            "timeout": self.timeout
+            if self.timeout is not None
+            else _env_float("GIGACHAT_TIMEOUT", DEFAULT_TIMEOUT_SECONDS),
+            "max_retries": _env_int("GIGACHAT_MAX_RETRIES", DEFAULT_MAX_RETRIES),
+            "retry_backoff_factor": _env_float(
+                "GIGACHAT_RETRY_BACKOFF_FACTOR",
+                DEFAULT_RETRY_BACKOFF_FACTOR,
+            ),
+        }
         if self.model:
             kwargs["model"] = self.model
+
+        credentials = os.getenv("GIGACHAT_CREDENTIALS")
+        if credentials:
+            kwargs["credentials"] = credentials
+
+        access_token = os.getenv("GIGACHAT_ACCESS_TOKEN")
+        if access_token:
+            kwargs["access_token"] = access_token
+
+        verify_ssl = _env_bool("GIGACHAT_VERIFY_SSL_CERTS")
+        if verify_ssl is not None:
+            kwargs["verify_ssl_certs"] = verify_ssl
+
+        ca_bundle = os.getenv("GIGACHAT_CA_BUNDLE_FILE")
+        if ca_bundle:
+            kwargs["ca_bundle_file"] = ca_bundle
+
         return kwargs
 
     def _create_client(self) -> Any:
@@ -64,8 +98,11 @@ class GigaChatProvider:
         if self.model:
             chat_kwargs["model"] = self.model
 
-        with self._create_client() as client:
-            response = client.chat(Chat(**chat_kwargs))
+        try:
+            with self._create_client() as client:
+                response = client.chat(Chat(**chat_kwargs))
+        except Exception as exc:
+            raise _connection_error(exc) from exc
 
         content = response.choices[0].message.content
         usage = getattr(response, "usage", None)
@@ -78,11 +115,14 @@ class GigaChatProvider:
         target_model = model or self.model
         kwargs = {"model": target_model} if target_model else {}
 
-        with self._create_client() as client:
-            try:
-                counts = client.tokens_count(input_=texts, **kwargs)
-            except TypeError:
-                counts = client.tokens_count(texts, **kwargs)
+        try:
+            with self._create_client() as client:
+                try:
+                    counts = client.tokens_count(input_=texts, **kwargs)
+                except TypeError:
+                    counts = client.tokens_count(texts, **kwargs)
+        except Exception as exc:
+            raise _connection_error(exc) from exc
 
         return [
             TokenCount(
@@ -94,8 +134,11 @@ class GigaChatProvider:
 
     def list_models(self) -> list[str]:
         """Возвращает список доступных моделей GigaChat."""
-        with self._create_client() as client:
-            models = client.get_models()
+        try:
+            with self._create_client() as client:
+                models = client.get_models()
+        except Exception as exc:
+            raise _connection_error(exc) from exc
 
         return [
             str(getattr(item, "id_", None) or getattr(item, "id", ""))
@@ -147,3 +190,82 @@ def ensure_gigachat_credentials() -> None:
             "Нужны GigaChat credentials: задайте GIGACHAT_CREDENTIALS "
             "или GIGACHAT_ACCESS_TOKEN."
         )
+
+
+def _env_bool(name: str) -> bool | None:
+    """Читает boolean env-переменную."""
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise RuntimeError(f"{name} должно быть true или false")
+
+
+def _env_float(name: str, default: float) -> float:
+    """Читает float env-переменную с default."""
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return default
+    try:
+        result = float(value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} должно быть числом") from exc
+    if result <= 0:
+        raise RuntimeError(f"{name} должно быть больше 0")
+    return result
+
+
+def _env_int(name: str, default: int) -> int:
+    """Читает int env-переменную с default."""
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return default
+    try:
+        result = int(value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} должно быть целым числом") from exc
+    if result < 0:
+        raise RuntimeError(f"{name} должно быть не меньше 0")
+    return result
+
+
+def _connection_error(exc: Exception) -> RuntimeError:
+    """Формирует понятную ошибку подключения к GigaChat."""
+    message = str(exc)
+    if "GigaChat credentials" in message:
+        return RuntimeError(message)
+
+    hint = (
+        "Не удалось подключиться к GigaChat. Проверьте интернет/VPN, "
+        "GIGACHAT_CREDENTIALS и доступность api.gigachat.devices.sberbank.ru. "
+        "Если ошибка связана с self-signed certificate, для локальной разработки "
+        "задайте GIGACHAT_VERIFY_SSL_CERTS=false или укажите GIGACHAT_CA_BUNDLE_FILE."
+    )
+
+    if _is_network_error(exc) or message:
+        return RuntimeError(f"{hint} Исходная ошибка: {message}")
+    return RuntimeError(hint)
+
+
+def _is_network_error(exc: BaseException) -> bool:
+    """Определяет сетевые и SSL-ошибки в цепочке исключений."""
+    current: BaseException | None = exc
+    while current is not None:
+        if isinstance(
+            current,
+            (
+                TimeoutError,
+                ConnectionError,
+                ConnectionResetError,
+                socket.timeout,
+                ssl.SSLError,
+                URLError,
+            ),
+        ):
+            return True
+        current = current.__cause__ or current.__context__
+    return False

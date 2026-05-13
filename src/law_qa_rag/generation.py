@@ -75,30 +75,43 @@ def apply_token_budget(
     provider: LLMProvider,
 ) -> TokenBudgetResult:
     """Оставляет top chunks, которые помещаются в token budget."""
-    selected: list[RetrievedChunk] = []
-    dropped: list[int] = []
-    total_tokens = 0
-
-    for index, chunk in enumerate(chunks):
-        candidate = selected + [chunk]
-        messages = build_answer_messages(question, candidate, config.llm.prompt_version)
-        token_count = provider.count_tokens(
-            [serialize_messages(messages)],
-            model=config.llm.model,
-        )[0].tokens
-        if token_count <= config.llm.context_token_budget:
-            selected = candidate
-            total_tokens = token_count
-        else:
-            dropped = [item.chunk_id for item in chunks[index:]]
-            break
-
-    if not selected:
+    if not chunks:
         messages = build_answer_messages(question, [], config.llm.prompt_version)
         total_tokens = provider.count_tokens(
             [serialize_messages(messages)],
             model=config.llm.model,
         )[0].tokens
+        return TokenBudgetResult(
+            selected_chunks=[],
+            dropped_chunk_ids=[],
+            total_tokens=total_tokens,
+        )
+
+    candidate_payloads = [
+        serialize_messages(
+            build_answer_messages(
+                question,
+                chunks[: index + 1],
+                config.llm.prompt_version,
+            )
+        )
+        for index in range(len(chunks))
+    ]
+    token_counts = provider.count_tokens(candidate_payloads, model=config.llm.model)
+
+    selected_count = 0
+    total_tokens = 0
+    for index, token_count in enumerate(token_counts):
+        if token_count.tokens <= config.llm.context_token_budget:
+            selected_count = index + 1
+            total_tokens = token_count.tokens
+        else:
+            break
+
+    selected = chunks[:selected_count]
+    dropped = [item.chunk_id for item in chunks[selected_count:]]
+    if selected_count == 0:
+        total_tokens = token_counts[0].tokens
 
     return TokenBudgetResult(
         selected_chunks=selected,
