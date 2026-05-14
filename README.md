@@ -146,4 +146,5 @@ Retrieval в generation pipeline выбирается из `settings.yaml`, а �
 - `docs/3_load_corpus.md`;
 - `docs/4_embed_chunks.md`;
 - `docs/5_generation.md`;
-- `docs/6_web_prototype.md`.
+- `docs/6_web_prototype.md`;
+- `docs/7_evaluation.md`.

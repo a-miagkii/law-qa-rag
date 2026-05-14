@@ -1,0 +1,35 @@
+experiment:
+  name: generation_all_v1_50q
+  task: answer_generation
+  question_count: 50
+  input_file: eval/gold_resolved.jsonl
+
+corpus:
+  chunks_file: data/chunks_json/chunks.jsonl
+  acts_file: data/chunks_json/acts.jsonl
+  chunk_manifest: data/chunks_json/chunk_manifest.json
+
+embedding:
+  embedding_model: BAAI/bge-m3
+  embedding_dim: 1024
+
+retrieval:
+  method: weighted_hybrid
+  top_k: 10
+  candidate_limit: 50
+  rrf_k: 60
+  sparse_weight: 0.5
+  dense_weight: 0.5
+
+llm:
+  provider: gigachat
+  configured_model: null
+  model_from_run: GigaChat:2.0.28.2
+  temperature: 0
+  max_output_tokens: 2500
+  context_token_budget: 5000
+  prompt_version: answer_v1
+
+outputs:
+  detailed_runs: eval/results/generation/generation_all_v1.jsonl
+  manual_review: eval/results/generation/generation_all_v1.csv

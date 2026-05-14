@@ -1,0 +1,36 @@
+experiment:
+  name: retrieval_baseline_50q
+  task: retrieval
+  question_count: 50
+  input_file: eval/gold_resolved.jsonl
+
+corpus:
+  chunks_file: data/chunks_json/chunks.jsonl
+  acts_file: data/chunks_json/acts.jsonl
+  chunk_manifest: data/chunks_json/chunk_manifest.json
+
+embedding:
+  embedding_model: BAAI/bge-m3
+  embedding_dim: 1024
+
+retrieval_eval:
+  top_k: 10
+  candidate_limit: 50
+  rrf_k: 60
+  methods:
+    - name: sparse
+    - name: dense
+    - name: weighted_hybrid
+      sparse_weight: 0.4
+      dense_weight: 0.6
+    - name: weighted_hybrid
+      sparse_weight: 0.5
+      dense_weight: 0.5
+    - name: weighted_hybrid
+      sparse_weight: 0.3
+      dense_weight: 0.7
+
+outputs:
+  detailed_runs: eval/results/retrieval/retrieval_runs.jsonl
+  summary_metrics: eval/results/retrieval/summary_metrics.csv
+  error_analysis: eval/results/retrieval/error_analysis.csv
