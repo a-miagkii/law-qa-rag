@@ -13,17 +13,21 @@ from law_qa_rag.persistence import (
     format_ru_date,
     format_status_label,
     get_feedback_for_answer_and_user,
+    get_user_question_history,
+    get_user_by_id,
     hash_password,
     normalize_question,
     save_answer_run_in_conn,
     save_feedback,
+    update_last_login,
     verify_password,
 )
 
 
 class FakeCursor:
-    def __init__(self, fetchone_values: list[Any]) -> None:
+    def __init__(self, fetchone_values: list[Any], fetchall_values: list[Any] | None = None) -> None:
         self.fetchone_values = fetchone_values
+        self.fetchall_values = fetchall_values or []
         self.executed: list[tuple[str, Any]] = []
         self.executemany_calls: list[tuple[str, list[dict[str, Any]]]] = []
 
@@ -42,10 +46,13 @@ class FakeCursor:
     def fetchone(self) -> Any:
         return self.fetchone_values.pop(0)
 
+    def fetchall(self) -> Any:
+        return self.fetchall_values.pop(0)
+
 
 class FakeConnection:
-    def __init__(self, fetchone_values: list[Any]) -> None:
-        self.cursor_obj = FakeCursor(fetchone_values)
+    def __init__(self, fetchone_values: list[Any], fetchall_values: list[Any] | None = None) -> None:
+        self.cursor_obj = FakeCursor(fetchone_values, fetchall_values=fetchall_values)
         self.committed = False
 
     def cursor(self) -> FakeCursor:
@@ -159,6 +166,71 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(user_id, 7)
         query = conn.cursor_obj.executed[0][0]
         self.assertIn("ON CONFLICT (external_uid)", query)
+
+    def test_get_user_by_id_returns_user_row(self) -> None:
+        row = {
+            "id": 5,
+            "external_uid": "user",
+            "password_hash": "hash",
+            "display_name": "User",
+            "last_login_at": None,
+            "created_at": "now",
+        }
+        conn = FakeConnection([row])
+
+        with patch("law_qa_rag.persistence.psycopg.connect", return_value=conn):
+            user = get_user_by_id("postgresql://test", 5)
+
+        self.assertEqual(user["external_uid"], "user")
+        query, params = conn.cursor_obj.executed[0]
+        self.assertIn("WHERE id = %(user_id)s", query)
+        self.assertEqual(params["user_id"], 5)
+
+    def test_update_last_login_returns_user_and_commits(self) -> None:
+        row = {
+            "id": 5,
+            "external_uid": "user",
+            "password_hash": "hash",
+            "display_name": None,
+            "last_login_at": "now",
+            "created_at": "before",
+        }
+        conn = FakeConnection([row])
+
+        with patch("law_qa_rag.persistence.psycopg.connect", return_value=conn):
+            user = update_last_login("postgresql://test", 5)
+
+        self.assertEqual(user["id"], 5)
+        self.assertTrue(conn.committed)
+        self.assertIn("SET last_login_at = now()", conn.cursor_obj.executed[0][0])
+
+    def test_get_user_question_history_filters_by_user_and_limit(self) -> None:
+        rows = [
+            {
+                "query_id": 10,
+                "question": "Что проверить?",
+                "question_created_at": "2026-05-14 10:00",
+                "answer_id": 20,
+                "answer_created_at": "2026-05-14 10:01",
+                "needs_clarification": False,
+                "citation_count": 2,
+            }
+        ]
+        conn = FakeConnection([], fetchall_values=[rows])
+
+        with patch("law_qa_rag.persistence.psycopg.connect", return_value=conn):
+            history = get_user_question_history("postgresql://test", user_id=5, limit=25)
+
+        self.assertEqual(history, rows)
+        query, params = conn.cursor_obj.executed[0]
+        self.assertIn("WHERE q.user_id = %(user_id)s", query)
+        self.assertIn("LEFT JOIN answers", query)
+        self.assertEqual(params["user_id"], 5)
+        self.assertEqual(params["limit"], 25)
+
+    def test_get_user_question_history_rejects_invalid_limit(self) -> None:
+        with self.assertRaises(ValueError):
+            get_user_question_history("postgresql://test", user_id=5, limit=0)
 
     def test_save_answer_run_writes_query_answer_and_citations(self) -> None:
         conn = FakeConnection([(7,), (11,), (22,)])

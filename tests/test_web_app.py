@@ -9,6 +9,9 @@ from law_qa_rag.generation import AnswerCitation, GeneratedAnswer
 from law_qa_rag.web.app import app
 
 
+TEST_USER = {"id": 5, "external_uid": "user", "display_name": None}
+
+
 def make_generated_answer() -> GeneratedAnswer:
     return GeneratedAnswer(
         answer="Водные объекты общего пользования доступны гражданам.",
@@ -41,6 +44,7 @@ def make_answer_page() -> dict[str, object]:
     return {
         "answer": {
             "answer_id": 42,
+            "user_id": 5,
             "question": "Что такое водные объекты общего пользования?",
             "answer_text": "Ответ по контексту.",
             "needs_clarification": False,
@@ -110,6 +114,29 @@ def make_source_page() -> dict[str, object]:
     }
 
 
+def make_history() -> list[dict[str, object]]:
+    return [
+        {
+            "query_id": 10,
+            "question": "Что такое водные объекты общего пользования?",
+            "question_created_at": "2026-05-14 10:00:00",
+            "answer_id": 42,
+            "answer_created_at": "2026-05-14 10:00:10",
+            "needs_clarification": False,
+            "citation_count": 2,
+        },
+        {
+            "query_id": 11,
+            "question": "Нужен ли дополнительный контекст?",
+            "question_created_at": "2026-05-14 11:00:00",
+            "answer_id": 43,
+            "answer_created_at": "2026-05-14 11:00:10",
+            "needs_clarification": True,
+            "citation_count": 0,
+        },
+    ]
+
+
 class WebAppTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(app)
@@ -121,19 +148,41 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("RAG по федеральным нормативным актам", response.text)
         self.assertIn("Введите юридический вопрос…", response.text)
         self.assertIn("Войти", response.text)
-        self.assertIn("Регистрация", response.text)
+        self.assertIn("Войдите, чтобы задать вопрос", response.text)
+        self.assertNotIn("Главная", response.text)
+        self.assertNotIn("Примеры</a>", response.text)
         self.assertNotIn("Frame 1", response.text)
         self.assertNotIn("LawRAG", response.text)
         self.assertNotIn("Спросите по правовому корпусу", response.text)
         self.assertNotIn("Идет поиск по корпусу и подготовка цитат.", response.text)
         self.assertIn("Что такое водные объекты общего пользования?", response.text)
 
+    def test_post_ask_requires_login_for_form(self) -> None:
+        response = self.client.post(
+            "/ask",
+            data={"question": "Что такое водные объекты общего пользования?"},
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("login_required=1", response.headers["location"])
+
+    def test_post_ask_requires_login_for_json(self) -> None:
+        response = self.client.post(
+            "/ask",
+            json={"question": "Что такое водные объекты общего пользования?"},
+        )
+
+        self.assertEqual(response.status_code, 401)
+
     def test_post_ask_form_redirects_to_answer_page(self) -> None:
         with (
             patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
             patch("law_qa_rag.web.app.generate_answer", return_value=make_generated_answer()),
             patch("law_qa_rag.web.app.save_answer_run", return_value=42),
         ):
+            self._login_test_user()
             response = self.client.post(
                 "/ask",
                 data={"question": "Что такое водные объекты общего пользования?"},
@@ -146,9 +195,11 @@ class WebAppTests(unittest.TestCase):
     def test_post_ask_json_returns_answer_payload(self) -> None:
         with (
             patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
             patch("law_qa_rag.web.app.generate_answer", return_value=make_generated_answer()),
             patch("law_qa_rag.web.app.save_answer_run", return_value=42),
         ):
+            self._login_test_user()
             response = self.client.post(
                 "/ask",
                 json={"question": "Что такое водные объекты общего пользования?"},
@@ -161,7 +212,12 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(payload["answer_citations"][0]["chunk_id"], 101)
 
     def test_post_ask_json_rejects_empty_question(self) -> None:
-        response = self.client.post("/ask", json={"question": "   "})
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
+        ):
+            self._login_test_user()
+            response = self.client.post("/ask", json={"question": "   "})
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Введите вопрос.")
@@ -169,15 +225,41 @@ class WebAppTests(unittest.TestCase):
     def test_answer_page_shows_answer_and_citation_metadata(self) -> None:
         with (
             patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
             patch("law_qa_rag.web.app.load_answer_page", return_value=make_answer_page()),
+            patch("law_qa_rag.web.app.get_feedback_for_answer_and_user", return_value=None),
         ):
+            self._login_test_user()
             response = self.client.get("/answers/42")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Ответ по контексту.", response.text)
         self.assertIn("Водный кодекс Российской Федерации", response.text)
         self.assertIn("Статья 6", response.text)
-        self.assertIn("Войдите", response.text)
+        self.assertIn("Оценка ответа", response.text)
+        self.assertIn("Показать полностью", response.text)
+        self.assertIn("citation-quote-details", response.text)
+        self.assertIn("Открыть первоисточник", response.text)
+        self.assertNotIn("Параметры запуска", response.text)
+
+    def test_answer_page_requires_login(self) -> None:
+        response = self.client.get("/answers/42", follow_redirects=False)
+
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("login_required=1", response.headers["location"])
+
+    def test_answer_page_forbids_other_user_answer(self) -> None:
+        page = make_answer_page()
+        page["answer"]["user_id"] = 99
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
+            patch("law_qa_rag.web.app.load_answer_page", return_value=page),
+        ):
+            self._login_test_user()
+            response = self.client.get("/answers/42")
+
+        self.assertEqual(response.status_code, 403)
 
     def test_register_creates_user_and_opens_session(self) -> None:
         with (
@@ -192,11 +274,12 @@ class WebAppTests(unittest.TestCase):
             ) as create_user,
         ):
             response = self.client.post(
-                "/register",
+                "/auth/register",
                 data={
                     "external_uid": "USER@example.test",
                     "display_name": "User",
                     "password": "secret",
+                    "password_confirm": "secret",
                 },
                 follow_redirects=False,
             )
@@ -204,9 +287,17 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303)
         create_user.assert_called_once()
 
-        index = self.client.get("/")
-        self.assertIn("User", index.text)
-        self.assertIn("Выйти", index.text)
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch(
+                "law_qa_rag.web.app.get_user_by_id",
+                return_value={"id": 5, "external_uid": "user@example.test", "display_name": "User"},
+            ),
+        ):
+            index = self.client.get("/")
+        self.assertIn(">User</a>", index.text)
+        self.assertNotIn("Вы вошли как", index.text)
+        self.assertNotIn("Выйти", index.text)
 
     def test_login_success_sets_session_and_logout_clears_it(self) -> None:
         with (
@@ -217,15 +308,21 @@ class WebAppTests(unittest.TestCase):
             ),
         ):
             response = self.client.post(
-                "/login",
+                "/auth/login",
                 data={"external_uid": "user", "password": "secret", "next": "/"},
                 follow_redirects=False,
             )
 
         self.assertEqual(response.status_code, 303)
-        self.assertIn("user", self.client.get("/").text)
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
+        ):
+            index_text = self.client.get("/").text
+            self.assertIn(">user</a>", index_text)
+            self.assertNotIn("Вы вошли как", index_text)
 
-        logout = self.client.post("/logout", follow_redirects=False)
+        logout = self.client.post("/auth/logout", follow_redirects=False)
         self.assertEqual(logout.status_code, 303)
         self.assertIn("Войти", self.client.get("/").text)
 
@@ -235,7 +332,7 @@ class WebAppTests(unittest.TestCase):
             patch("law_qa_rag.web.app.authenticate_user", return_value=None),
         ):
             response = self.client.post(
-                "/login",
+                "/auth/login",
                 data={"external_uid": "user", "password": "bad", "next": "/"},
             )
 
@@ -251,13 +348,14 @@ class WebAppTests(unittest.TestCase):
             ),
         ):
             self.client.post(
-                "/login",
+                "/auth/login",
                 data={"external_uid": "user", "password": "secret", "next": "/"},
                 follow_redirects=False,
             )
 
         with (
             patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
             patch("law_qa_rag.web.app.generate_answer", return_value=make_generated_answer()),
             patch("law_qa_rag.web.app.save_answer_run", return_value=42) as save_answer_run,
         ):
@@ -279,13 +377,14 @@ class WebAppTests(unittest.TestCase):
             ),
         ):
             self.client.post(
-                "/login",
+                "/auth/login",
                 data={"external_uid": "user", "password": "secret", "next": "/"},
                 follow_redirects=False,
             )
 
         with (
             patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
             patch("law_qa_rag.web.app.load_answer_page", return_value=make_answer_page()),
             patch(
                 "law_qa_rag.web.app.get_feedback_for_answer_and_user",
@@ -307,7 +406,7 @@ class WebAppTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 303)
-        self.assertIn("/login", response.headers["location"])
+        self.assertIn("login_required=1", response.headers["location"])
 
     def test_post_feedback_saves_for_logged_in_user(self) -> None:
         with (
@@ -318,13 +417,15 @@ class WebAppTests(unittest.TestCase):
             ),
         ):
             self.client.post(
-                "/login",
+                "/auth/login",
                 data={"external_uid": "user", "password": "secret", "next": "/"},
                 follow_redirects=False,
             )
 
         with (
             patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
+            patch("law_qa_rag.web.app.load_answer_page", return_value=make_answer_page()),
             patch("law_qa_rag.web.app.save_feedback", return_value=99) as save_feedback,
         ):
             response = self.client.post(
@@ -349,17 +450,84 @@ class WebAppTests(unittest.TestCase):
     def test_source_page_highlights_cited_chunks(self) -> None:
         with (
             patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
+            patch("law_qa_rag.web.app.load_answer_page", return_value=make_answer_page()),
             patch("law_qa_rag.web.app.load_source_page", return_value=make_source_page()),
         ):
+            self._login_test_user()
             response = self.client.get("/sources/7?answer_id=42")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Водный кодекс Российской Федерации", response.text)
+        self.assertIn("Первоисточник", response.text)
+        self.assertIn("Вернуться к ответу", response.text)
         self.assertIn("Цитата 1", response.text)
         self.assertIn("Полный текст нормы", response.text)
         self.assertIn("действует", response.text)
         self.assertNotIn("Chunk", response.text)
         self.assertNotIn("Примечание", response.text)
+
+    def test_source_page_forbids_other_user_answer(self) -> None:
+        page = make_answer_page()
+        page["answer"]["user_id"] = 99
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
+            patch("law_qa_rag.web.app.load_answer_page", return_value=page),
+        ):
+            self._login_test_user()
+            response = self.client.get("/sources/7?answer_id=42")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_profile_requires_login(self) -> None:
+        response = self.client.get("/profile", follow_redirects=False)
+
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("login_required=1", response.headers["location"])
+
+    def test_profile_shows_user_and_question_history(self) -> None:
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
+            patch("law_qa_rag.web.app.get_user_question_history", return_value=make_history()) as history,
+        ):
+            self._login_test_user()
+            response = self.client.get("/profile")
+
+        self.assertEqual(response.status_code, 200)
+        history.assert_called_once_with("postgresql://test", 5)
+        self.assertIn("Профиль", response.text)
+        self.assertIn("История вопросов", response.text)
+        self.assertIn("Что такое водные объекты общего пользования?", response.text)
+        self.assertIn("Открыть ответ", response.text)
+        self.assertIn("требует уточнения", response.text)
+        self.assertIn("Выйти", response.text)
+        self.assertNotIn("Вы вошли как", response.text)
+
+    def test_profile_empty_history_message(self) -> None:
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
+            patch("law_qa_rag.web.app.get_user_question_history", return_value=[]),
+        ):
+            self._login_test_user()
+            response = self.client.get("/profile")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Вы пока не задавали вопросов.", response.text)
+
+    def _login_test_user(self, user: dict[str, object] | None = None) -> None:
+        user = user or TEST_USER
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.authenticate_user", return_value=user),
+        ):
+            self.client.post(
+                "/auth/login",
+                data={"external_uid": user["external_uid"], "password": "secret", "next": "/"},
+                follow_redirects=False,
+            )
 
 
 if __name__ == "__main__":
