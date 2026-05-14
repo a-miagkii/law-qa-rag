@@ -104,6 +104,8 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("RAG по федеральным нормативным актам", response.text)
         self.assertIn("Введите юридический вопрос…", response.text)
+        self.assertIn("Войти", response.text)
+        self.assertIn("Регистрация", response.text)
         self.assertNotIn("Frame 1", response.text)
         self.assertNotIn("LawRAG", response.text)
         self.assertNotIn("Спросите по правовому корпусу", response.text)
@@ -159,6 +161,174 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("Ответ по контексту.", response.text)
         self.assertIn("Водный кодекс Российской Федерации", response.text)
         self.assertIn("Статья 6", response.text)
+        self.assertIn("Войдите", response.text)
+
+    def test_register_creates_user_and_opens_session(self) -> None:
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch(
+                "law_qa_rag.web.app.create_user",
+                return_value={
+                    "id": 5,
+                    "external_uid": "user@example.test",
+                    "display_name": "User",
+                },
+            ) as create_user,
+        ):
+            response = self.client.post(
+                "/register",
+                data={
+                    "external_uid": "USER@example.test",
+                    "display_name": "User",
+                    "password": "secret",
+                },
+                follow_redirects=False,
+            )
+
+        self.assertEqual(response.status_code, 303)
+        create_user.assert_called_once()
+
+        index = self.client.get("/")
+        self.assertIn("User", index.text)
+        self.assertIn("Выйти", index.text)
+
+    def test_login_success_sets_session_and_logout_clears_it(self) -> None:
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch(
+                "law_qa_rag.web.app.authenticate_user",
+                return_value={"id": 5, "external_uid": "user", "display_name": None},
+            ),
+        ):
+            response = self.client.post(
+                "/login",
+                data={"external_uid": "user", "password": "secret", "next": "/"},
+                follow_redirects=False,
+            )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("user", self.client.get("/").text)
+
+        logout = self.client.post("/logout", follow_redirects=False)
+        self.assertEqual(logout.status_code, 303)
+        self.assertIn("Войти", self.client.get("/").text)
+
+    def test_login_failure_shows_error(self) -> None:
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.authenticate_user", return_value=None),
+        ):
+            response = self.client.post(
+                "/login",
+                data={"external_uid": "user", "password": "bad", "next": "/"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Неверный логин или пароль", response.text)
+
+    def test_post_ask_form_saves_query_for_logged_in_user(self) -> None:
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch(
+                "law_qa_rag.web.app.authenticate_user",
+                return_value={"id": 5, "external_uid": "user", "display_name": None},
+            ),
+        ):
+            self.client.post(
+                "/login",
+                data={"external_uid": "user", "password": "secret", "next": "/"},
+                follow_redirects=False,
+            )
+
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.generate_answer", return_value=make_generated_answer()),
+            patch("law_qa_rag.web.app.save_answer_run", return_value=42) as save_answer_run,
+        ):
+            response = self.client.post(
+                "/ask",
+                data={"question": "Что такое водные объекты общего пользования?"},
+                follow_redirects=False,
+            )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(save_answer_run.call_args.kwargs["user_id"], 5)
+
+    def test_answer_page_prefills_existing_feedback_for_logged_in_user(self) -> None:
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch(
+                "law_qa_rag.web.app.authenticate_user",
+                return_value={"id": 5, "external_uid": "user", "display_name": None},
+            ),
+        ):
+            self.client.post(
+                "/login",
+                data={"external_uid": "user", "password": "secret", "next": "/"},
+                follow_redirects=False,
+            )
+
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.load_answer_page", return_value=make_answer_page()),
+            patch(
+                "law_qa_rag.web.app.get_feedback_for_answer_and_user",
+                return_value={"rating": 4, "comment": "Хороший ответ"},
+            ),
+        ):
+            response = self.client.get("/answers/42?feedback_saved=1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Спасибо, оценка сохранена.", response.text)
+        self.assertIn("Хороший ответ", response.text)
+        self.assertIn('value="4"', response.text)
+
+    def test_post_feedback_requires_login(self) -> None:
+        response = self.client.post(
+            "/answers/42/feedback",
+            data={"rating": "5", "comment": "ok"},
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("/login", response.headers["location"])
+
+    def test_post_feedback_saves_for_logged_in_user(self) -> None:
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch(
+                "law_qa_rag.web.app.authenticate_user",
+                return_value={"id": 5, "external_uid": "user", "display_name": None},
+            ),
+        ):
+            self.client.post(
+                "/login",
+                data={"external_uid": "user", "password": "secret", "next": "/"},
+                follow_redirects=False,
+            )
+
+        with (
+            patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
+            patch("law_qa_rag.web.app.save_feedback", return_value=99) as save_feedback,
+        ):
+            response = self.client.post(
+                "/answers/42/feedback",
+                data={"rating": "5", "comment": "Полезно"},
+                follow_redirects=False,
+            )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"],
+            "http://testserver/answers/42?feedback_saved=1",
+        )
+        save_feedback.assert_called_once_with(
+            "postgresql://test",
+            42,
+            5,
+            5,
+            "Полезно",
+        )
 
     def test_source_page_highlights_cited_chunks(self) -> None:
         with (

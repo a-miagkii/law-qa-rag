@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import unittest
 from typing import Any
+from unittest.mock import patch
 
 from law_qa_rag.generation import AnswerCitation, GeneratedAnswer
 from law_qa_rag.persistence import (
     ensure_technical_user,
+    get_feedback_for_answer_and_user,
+    hash_password,
     normalize_question,
     save_answer_run_in_conn,
+    save_feedback,
+    verify_password,
 )
 
 
@@ -36,9 +41,19 @@ class FakeCursor:
 class FakeConnection:
     def __init__(self, fetchone_values: list[Any]) -> None:
         self.cursor_obj = FakeCursor(fetchone_values)
+        self.committed = False
 
     def cursor(self) -> FakeCursor:
         return self.cursor_obj
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def __enter__(self) -> "FakeConnection":
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
 
 
 def make_generated_answer(needs_clarification: bool = False) -> GeneratedAnswer:
@@ -70,6 +85,13 @@ def make_generated_answer(needs_clarification: bool = False) -> GeneratedAnswer:
 
 
 class PersistenceTests(unittest.TestCase):
+    def test_password_hash_verification(self) -> None:
+        password_hash = hash_password("secret")
+
+        self.assertTrue(verify_password("secret", password_hash))
+        self.assertFalse(verify_password("wrong", password_hash))
+        self.assertNotIn("secret", password_hash)
+
     def test_normalize_question_collapses_spaces_and_lowercases(self) -> None:
         self.assertEqual(
             normalize_question("  Что   Такое ВОДНЫЙ объект? "),
@@ -121,6 +143,74 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(citation_rows[0]["answer_id"], 22)
         self.assertEqual(citation_rows[0]["chunk_id"], 101)
         self.assertEqual(citation_rows[0]["quote"], "Полный текст chunk")
+
+    def test_save_answer_run_uses_explicit_user_id(self) -> None:
+        conn = FakeConnection([(11,), (22,)])
+
+        answer_id = save_answer_run_in_conn(
+            conn,
+            "Что проверить?",
+            make_generated_answer(),
+            user_id=99,
+        )
+
+        self.assertEqual(answer_id, 22)
+        self.assertFalse(
+            any("INSERT INTO users" in query for query, _ in conn.cursor_obj.executed)
+        )
+        query_params = next(
+            params
+            for _query, params in conn.cursor_obj.executed
+            if isinstance(params, dict) and "normalized_question" in params
+        )
+        self.assertEqual(query_params["user_id"], 99)
+
+    def test_save_feedback_uses_upsert(self) -> None:
+        conn = FakeConnection([(55,)])
+
+        with patch("law_qa_rag.persistence.psycopg.connect", return_value=conn):
+            feedback_id = save_feedback(
+                "postgresql://test",
+                answer_id=10,
+                user_id=20,
+                rating=5,
+                comment=" Полезно ",
+            )
+
+        self.assertEqual(feedback_id, 55)
+        self.assertTrue(conn.committed)
+        query, params = conn.cursor_obj.executed[0]
+        self.assertIn("ON CONFLICT (answer_id, user_id)", query)
+        self.assertEqual(params["rating"], 5)
+        self.assertEqual(params["comment"], "Полезно")
+
+    def test_save_feedback_rejects_invalid_rating(self) -> None:
+        with self.assertRaises(ValueError):
+            save_feedback("postgresql://test", answer_id=10, user_id=20, rating=0, comment=None)
+
+    def test_get_feedback_for_answer_and_user_returns_row(self) -> None:
+        row = {
+            "id": 55,
+            "answer_id": 10,
+            "user_id": 20,
+            "rating": 4,
+            "comment": "ok",
+            "created_at": "now",
+        }
+        conn = FakeConnection([row])
+
+        with patch("law_qa_rag.persistence.psycopg.connect", return_value=conn):
+            feedback = get_feedback_for_answer_and_user(
+                "postgresql://test",
+                answer_id=10,
+                user_id=20,
+            )
+
+        self.assertEqual(feedback["rating"], 4)
+        query, params = conn.cursor_obj.executed[0]
+        self.assertIn("FROM feedback", query)
+        self.assertEqual(params["answer_id"], 10)
+        self.assertEqual(params["user_id"], 20)
 
 
 if __name__ == "__main__":

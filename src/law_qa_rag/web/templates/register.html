@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Регистрация | RAG по федеральным нормативным актам{% endblock %}
+
+{% block content %}
+  <section class="frame auth-frame">
+    <header class="topbar">
+      <a class="logo" href="{{ url_for('index') }}">RAG по федеральным нормативным актам</a>
+      <nav class="menu" aria-label="Навигация">
+        <a href="{{ url_for('index') }}">Главная</a>
+        {% include "_auth_nav.html" %}
+      </nav>
+    </header>
+
+    <main class="auth-main">
+      <article class="card auth-card">
+        <h3>Регистрация</h3>
+        <form class="auth-form" method="post" action="{{ url_for('register') }}">
+          <label>
+            <span>Логин</span>
+            <input name="external_uid" type="text" autocomplete="username" value="{{ external_uid or '' }}" required>
+          </label>
+          <label>
+            <span>Имя</span>
+            <input name="display_name" type="text" autocomplete="name" value="{{ display_name or '' }}">
+          </label>
+          <label>
+            <span>Пароль</span>
+            <input name="password" type="password" autocomplete="new-password" required>
+          </label>
+          {% if error %}
+            <p class="error">{{ error }}</p>
+          {% endif %}
+          <button class="btn" type="submit">Создать пользователя</button>
+        </form>
+      </article>
+    </main>
+
+    <footer class="frame-footer">
+      Минимальная локальная регистрация нужна только для привязки вопросов и feedback к пользователю.
+    </footer>
+  </section>
+{% endblock %}

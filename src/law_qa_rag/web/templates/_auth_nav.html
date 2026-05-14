@@ -1,0 +1,9 @@
+{% if current_user %}
+  <span class="menu-user">{{ current_user.display_name or current_user.external_uid }}</span>
+  <form class="nav-form" method="post" action="{{ url_for('logout') }}">
+    <button class="nav-button" type="submit">Выйти</button>
+  </form>
+{% else %}
+  <a href="{{ url_for('login_page') }}">Войти</a>
+  <a href="{{ url_for('register_page') }}">Регистрация</a>
+{% endif %}

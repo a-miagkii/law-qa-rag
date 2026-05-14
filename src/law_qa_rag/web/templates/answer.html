@@ -4,6 +4,14 @@
 
 {% block content %}
   <section class="frame" id="frame-answer">
+    <header class="topbar">
+      <a class="logo" href="{{ url_for('index') }}">RAG по федеральным нормативным актам</a>
+      <nav class="menu" aria-label="Навигация">
+        <a href="{{ url_for('index') }}">Главная</a>
+        {% include "_auth_nav.html" %}
+      </nav>
+    </header>
+
     <div class="answer-layout">
       <div class="column">
         <article class="card">
@@ -44,6 +52,45 @@
               <dd>{{ page.answer.latency_ms }} мс</dd>
             </div>
           </dl>
+        </article>
+
+        <article class="card feedback-card">
+          <h3>Оценка ответа</h3>
+          {% if feedback_saved %}
+            <div class="success">Спасибо, оценка сохранена.</div>
+          {% endif %}
+          {% if current_user %}
+            <form class="feedback-form" method="post" action="{{ url_for('answer_feedback', answer_id=page.answer.answer_id) }}">
+              <fieldset class="rating-field">
+                <legend>Оценка</legend>
+                {% for value in [1, 2, 3, 4, 5] %}
+                  <label class="rating-option">
+                    <input
+                      name="rating"
+                      type="radio"
+                      value="{{ value }}"
+                      {% if feedback and feedback.rating == value %}checked{% endif %}
+                      required
+                    >
+                    <span>{{ value }}</span>
+                  </label>
+                {% endfor %}
+              </fieldset>
+              <label class="comment-field">
+                <span>Комментарий</span>
+                <textarea name="comment" rows="4">{{ feedback.comment if feedback and feedback.comment else "" }}</textarea>
+              </label>
+              {% if feedback_error %}
+                <p class="error">{{ feedback_error }}</p>
+              {% endif %}
+              <button class="small-btn" type="submit">Отправить оценку</button>
+            </form>
+          {% else %}
+            <p>
+              <a href="{{ url_for('login_page') }}?next={{ url_for('answer_page', answer_id=page.answer.answer_id).path }}">Войдите</a>,
+              чтобы оставить оценку ответа.
+            </p>
+          {% endif %}
         </article>
       </div>
 

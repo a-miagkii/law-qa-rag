@@ -6,6 +6,9 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS users (
     id bigserial PRIMARY KEY,
     external_uid varchar(128) NOT NULL UNIQUE,
+    password_hash text,
+    display_name varchar(128),
+    last_login_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now()
 );
 

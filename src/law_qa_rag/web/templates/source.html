@@ -5,11 +5,16 @@
 {% block content %}
   <section class="frame" id="frame-source">
     <header class="source-header">
-      {% if page.answer_id %}
-        <a class="back-btn" href="{{ url_for('answer_page', answer_id=page.answer_id) }}">← к ответу</a>
-      {% else %}
-        <a class="back-btn" href="{{ url_for('index') }}">← на главную</a>
-      {% endif %}
+      <div class="source-header-row">
+        {% if page.answer_id %}
+          <a class="back-btn" href="{{ url_for('answer_page', answer_id=page.answer_id) }}">← к ответу</a>
+        {% else %}
+          <a class="back-btn" href="{{ url_for('index') }}">← на главную</a>
+        {% endif %}
+        <nav class="menu" aria-label="Навигация">
+          {% include "_auth_nav.html" %}
+        </nav>
+      </div>
     </header>
 
     <div class="source-layout">

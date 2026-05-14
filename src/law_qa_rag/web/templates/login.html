@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Вход | RAG по федеральным нормативным актам{% endblock %}
+
+{% block content %}
+  <section class="frame auth-frame">
+    <header class="topbar">
+      <a class="logo" href="{{ url_for('index') }}">RAG по федеральным нормативным актам</a>
+      <nav class="menu" aria-label="Навигация">
+        <a href="{{ url_for('index') }}">Главная</a>
+        {% include "_auth_nav.html" %}
+      </nav>
+    </header>
+
+    <main class="auth-main">
+      <article class="card auth-card">
+        <h3>Вход</h3>
+        <form class="auth-form" method="post" action="{{ url_for('login') }}">
+          <input name="next" type="hidden" value="{{ next_url or '/' }}">
+          <label>
+            <span>Логин</span>
+            <input name="external_uid" type="text" autocomplete="username" value="{{ external_uid or '' }}" required>
+          </label>
+          <label>
+            <span>Пароль</span>
+            <input name="password" type="password" autocomplete="current-password" required>
+          </label>
+          {% if error %}
+            <p class="error">{{ error }}</p>
+          {% endif %}
+          <button class="btn" type="submit">Войти</button>
+        </form>
+      </article>
+    </main>
+
+    <footer class="frame-footer">
+      Авторизация локальная и минимальная: без ролей, восстановления пароля и внешних OAuth-провайдеров.
+    </footer>
+  </section>
+{% endblock %}
