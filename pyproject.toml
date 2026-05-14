@@ -25,6 +25,7 @@ dependencies = [
     "python-multipart",
     "python-dotenv",
     "httpx",
+    "itsdangerous",
 ]
 
 [tool.setuptools]

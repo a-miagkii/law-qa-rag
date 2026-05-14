@@ -61,6 +61,8 @@ def make_answer_page() -> dict[str, object]:
                 "article_no": "6",
                 "clause_range": "1",
                 "quote": "Полный текст chunk",
+                "display_quote": "Полный текст chunk",
+                "doc_date_label": "03.06.2006",
             }
         ],
     }
@@ -74,21 +76,35 @@ def make_source_page() -> dict[str, object]:
             "doc_type": "Кодекс",
             "doc_number": "74-ФЗ",
             "doc_date": "2006-06-03",
+            "doc_date_label": "03.06.2006",
             "edition_as_of": "2026-03-01",
+            "edition_as_of_label": "01.03.2026",
             "edition_note": "Редакция актуальна для корпуса",
             "status": "actual",
+            "status_label": "действует",
+            "show_edition_note": False,
         },
         "chunks": [
             {
                 "chunk_id": 101,
                 "chunk_index": 0,
                 "text": "Полный текст chunk",
+                "display_title": "Статья 6",
+                "display_text": "Полный текст нормы",
                 "structure_ref": "Статья 6",
                 "article_no": "6",
                 "clause_range": "1",
                 "token_count": 120,
                 "is_cited": True,
                 "citation_rank": 1,
+                "citation_display_index": 1,
+            }
+        ],
+        "source_citations": [
+            {
+                "chunk_id": 101,
+                "display_index": 1,
+                "label": "Цитата 1 — статья 6",
             }
         ],
     }
@@ -339,8 +355,11 @@ class WebAppTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Водный кодекс Российской Федерации", response.text)
-        self.assertIn("цитата #1", response.text)
-        self.assertIn("Полный текст chunk", response.text)
+        self.assertIn("Цитата 1", response.text)
+        self.assertIn("Полный текст нормы", response.text)
+        self.assertIn("действует", response.text)
+        self.assertNotIn("Chunk", response.text)
+        self.assertNotIn("Примечание", response.text)
 
 
 if __name__ == "__main__":

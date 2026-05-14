@@ -6,7 +6,12 @@ from unittest.mock import patch
 
 from law_qa_rag.generation import AnswerCitation, GeneratedAnswer
 from law_qa_rag.persistence import (
+    build_fragment_title,
+    build_source_citation_label,
+    clean_display_quote,
     ensure_technical_user,
+    format_ru_date,
+    format_status_label,
     get_feedback_for_answer_and_user,
     hash_password,
     normalize_question,
@@ -96,6 +101,54 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(
             normalize_question("  Что   Такое ВОДНЫЙ объект? "),
             "что такое водный объект?",
+        )
+
+    def test_clean_display_quote_removes_repeated_act_and_structure(self) -> None:
+        text = (
+            "Лесной кодекс Российской Федерации "
+            "Глава 3. Охрана лесов от пожаров Статья 53.5. "
+            "Органы государственной власти, органы местного самоуправления "
+            "обеспечивают меры пожарной безопасности."
+        )
+
+        self.assertEqual(
+            clean_display_quote(
+                text,
+                act_title="Лесной кодекс Российской Федерации",
+                structure_ref="Глава 3. Охрана лесов от пожаров Статья 53.5.",
+            ),
+            (
+                "Органы государственной власти, органы местного самоуправления "
+                "обеспечивают меры пожарной безопасности."
+            ),
+        )
+
+    def test_clean_display_quote_keeps_text_when_prefix_boundary_differs(self) -> None:
+        self.assertEqual(
+            clean_display_quote("Статья 10 регулирует порядок.", structure_ref="Статья 1"),
+            "Статья 10 регулирует порядок.",
+        )
+
+    def test_status_and_date_display_helpers(self) -> None:
+        self.assertEqual(format_status_label("actual"), "действует")
+        self.assertEqual(
+            format_status_label("actual_with_future_editions"),
+            "действует, есть будущие редакции",
+        )
+        self.assertEqual(format_status_label("legacy"), "не определен (legacy)")
+        self.assertEqual(format_ru_date("2026-03-01"), "01.03.2026")
+
+    def test_fragment_and_citation_labels_are_human_readable(self) -> None:
+        chunk = {
+            "chunk_index": 90,
+            "structure_ref": "Глава 3. Статья 53.5",
+            "article_no": "53.5",
+        }
+
+        self.assertEqual(build_fragment_title(chunk), "Глава 3. Статья 53.5")
+        self.assertEqual(
+            build_source_citation_label(1, chunk),
+            "Цитата 1 — статья 53.5",
         )
 
     def test_ensure_technical_user_is_idempotent(self) -> None:

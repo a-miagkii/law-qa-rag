@@ -102,7 +102,7 @@
               <strong>{{ citation.act_title }}</strong>
               <div class="citation-meta">
                 № {{ citation.doc_number or "не указан" }},
-                дата {{ citation.doc_date or "не указана" }}
+                дата {{ citation.doc_date_label or citation.doc_date or "не указана" }}
               </div>
               <div class="citation-meta">
                 {{ citation.structure_ref or "Структура не указана" }}
@@ -111,7 +111,7 @@
                   пункты {{ citation.clause_range or "не указаны" }}
                 {% endif %}
               </div>
-              <div class="citation-quote">{{ citation.quote }}</div>
+              <div class="citation-quote">{{ citation.display_quote or citation.quote }}</div>
               <a
                 class="small-btn"
                 href="{{ url_for('source_page', act_id=citation.act_id) }}?answer_id={{ page.answer.answer_id }}"
@@ -121,7 +121,7 @@
         {% else %}
           <article class="citation-card">
             <strong>Цитаты не выбраны</strong>
-            <div class="citation-quote">Модель не сослалась на chunks из контекста.</div>
+            <div class="citation-quote">Модель не сослалась на фрагменты из контекста.</div>
           </article>
         {% endif %}
       </aside>

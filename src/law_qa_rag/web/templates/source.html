@@ -22,47 +22,31 @@
         <h4>Метаданные документа</h4>
         <p><strong>Название:</strong> {{ page.act.title }}</p>
         <p><strong>Вид:</strong> {{ page.act.doc_type }}</p>
-        <p><strong>Дата:</strong> {{ page.act.doc_date }}</p>
+        <p><strong>Дата:</strong> {{ page.act.doc_date_label or page.act.doc_date }}</p>
         <p><strong>Номер:</strong> № {{ page.act.doc_number }}</p>
-        <p><strong>Редакция:</strong> {{ page.act.edition_as_of }}</p>
-        <p><strong>Статус:</strong> {{ page.act.status }}</p>
-        {% if page.act.edition_note %}
-          <p><strong>Примечание:</strong> {{ page.act.edition_note }}</p>
-        {% endif %}
+        <p><strong>Редакция:</strong> {{ page.act.edition_as_of_label or page.act.edition_as_of }}</p>
+        <p><strong>Статус:</strong> {{ page.act.status_label or page.act.status }}</p>
       </aside>
 
       <main class="viewer">
         {% for chunk in page.chunks %}
           <article class="viewer-chunk" id="chunk-{{ chunk.chunk_id }}">
             <header>
-              <strong>Chunk {{ chunk.chunk_index }}</strong>
+              <strong>{{ chunk.display_title or chunk.structure_ref or (chunk.article_no and "Статья " ~ chunk.article_no) or "Фрагмент " ~ chunk.chunk_index }}</strong>
               {% if chunk.is_cited %}
-                <span>цитата #{{ chunk.citation_rank }}</span>
+                <span>Цитата {{ chunk.citation_display_index or chunk.citation_rank }}</span>
               {% endif %}
             </header>
-            <p class="chunk-meta">
-              {{ chunk.structure_ref or "Структура не указана" }}
-              {% if chunk.article_no %} · статья {{ chunk.article_no }}{% endif %}
-              {% if chunk.clause_range %} · пункты {{ chunk.clause_range }}{% endif %}
-              · {{ chunk.token_count }} токенов
-            </p>
-            <p>
-              {% if chunk.is_cited %}
-                <span class="highlight">{{ chunk.text }}</span>
-              {% else %}
-                {{ chunk.text }}
-              {% endif %}
-            </p>
+            <p class="fragment-text">{% if chunk.is_cited %}<span class="highlight">{{ chunk.display_text or chunk.text }}</span>{% else %}{{ chunk.display_text or chunk.text }}{% endif %}</p>
           </article>
         {% endfor %}
       </main>
 
       <aside class="anchors">
         <h4>Все цитаты</h4>
-        {% set cited = page.chunks | selectattr("is_cited") | list %}
-        {% if cited %}
-          {% for chunk in cited %}
-            <a href="#chunk-{{ chunk.chunk_id }}">Цитата {{ chunk.citation_rank }}</a>
+        {% if page.source_citations is defined and page.source_citations %}
+          {% for citation in page.source_citations %}
+            <a href="#chunk-{{ citation.chunk_id }}">{{ citation.label }}</a>
           {% endfor %}
         {% else %}
           <a href="#frame-source">Цитат нет</a>
