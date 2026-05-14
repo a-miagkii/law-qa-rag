@@ -4,7 +4,7 @@ import json
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
-
+from pathlib import Path
 from pydantic import BaseModel, ValidationError
 
 from law_qa_rag.config import AppConfig
@@ -121,19 +121,103 @@ def apply_token_budget(
 
 
 def parse_model_answer(raw_content: str) -> ModelAnswer:
-    """Парсит и валидирует JSON модели."""
-    content = _strip_json_fence(raw_content)
-    try:
-        if hasattr(ModelAnswer, "model_validate_json"):
-            answer = ModelAnswer.model_validate_json(content)
-        else:
-            answer = ModelAnswer.parse_raw(content)
-    except (ValidationError, ValueError, TypeError) as exc:
-        raise ValueError(f"Модель вернула невалидный JSON: {exc}") from exc
+    """Парсит и валидирует JSON модели.
 
-    if not isinstance(answer.answer, str) or not answer.answer.strip():
-        raise ValueError("Поле answer должно быть непустой строкой")
-    return answer
+    Парсер намеренно допускает только безопасные исправления:
+    - удаление markdown-обертки;
+    - извлечение JSON-объекта из ответа;
+    - добавление недостающей закрывающей фигурной скобки, если JSON явно оборвался в конце;
+    - разбор JSON со строгой последующей валидацией через ModelAnswer.
+
+    Обычный текст вместо JSON не преобразуется в ответ.
+    Если модель не указала used_chunk_ids, содержательный ответ не принимается:
+    система возвращает безопасное сообщение о недостаточности контекста.
+    """
+    content = _strip_json_fence(raw_content).strip()
+
+    candidates: list[str] = []
+
+    def add_candidate(value: str) -> None:
+        value = value.strip()
+        if value and value not in candidates:
+            candidates.append(value)
+
+    def finalize_answer(answer: ModelAnswer) -> ModelAnswer:
+        if not isinstance(answer.answer, str) or not answer.answer.strip():
+            raise ValueError("Поле answer должно быть непустой строкой")
+
+        if not answer.used_chunk_ids:
+            safe_update = {
+                "answer": "В переданном контексте недостаточно информации для ответа на вопрос.",
+                "used_chunk_ids": [],
+                "needs_clarification": True,
+            }
+
+            if hasattr(answer, "model_copy"):
+                return answer.model_copy(update=safe_update)
+
+            return answer.copy(update=safe_update)
+
+        return answer
+
+    add_candidate(content)
+
+    json_start = content.find("{")
+    json_end = content.rfind("}")
+
+    if json_start >= 0 and json_end > json_start:
+        add_candidate(content[json_start : json_end + 1])
+
+    if json_start >= 0:
+        maybe_json = content[json_start:].strip()
+        open_braces = maybe_json.count("{")
+        close_braces = maybe_json.count("}")
+        missing_braces = open_braces - close_braces
+
+        if 0 < missing_braces <= 3:
+            add_candidate(maybe_json + ("}" * missing_braces))
+
+    last_exc: Exception | None = None
+
+    for candidate in candidates:
+        try:
+            if hasattr(ModelAnswer, "model_validate_json"):
+                answer = ModelAnswer.model_validate_json(candidate)
+            else:
+                answer = ModelAnswer.parse_raw(candidate)
+
+            return finalize_answer(answer)
+
+        except (ValidationError, ValueError, TypeError) as exc:
+            last_exc = exc
+
+        try:
+            data = json.loads(candidate, strict=False)
+
+            if hasattr(ModelAnswer, "model_validate"):
+                answer = ModelAnswer.model_validate(data)
+            else:
+                answer = ModelAnswer.parse_obj(data)
+
+            return finalize_answer(answer)
+
+        except (ValidationError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            last_exc = exc
+
+    debug_dir = Path("eval/results/llm_debug")
+    debug_dir.mkdir(parents=True, exist_ok=True)
+
+    debug_path = debug_dir / f"invalid_llm_response_{time.time_ns()}.txt"
+    debug_path.write_text(content, encoding="utf-8")
+
+    last_debug_path = Path("eval/results/last_invalid_llm_response.txt")
+    last_debug_path.parent.mkdir(parents=True, exist_ok=True)
+    last_debug_path.write_text(content, encoding="utf-8")
+
+    raise ValueError(
+        f"Модель вернула невалидный JSON: {last_exc}. "
+        f"Сырой ответ сохранен в {debug_path}"
+    ) from last_exc
 
 
 def build_answer_citations(
