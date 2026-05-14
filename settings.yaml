@@ -1,9 +1,6 @@
 project:
   name: law_qa_rag
 
-corpus:
-  type: federal_laws_only
-
 embedding:
   embedding_model: BAAI/bge-m3
   embedding_dim: 1024
@@ -37,12 +34,12 @@ llm:
   prompt_version: answer_v1
 
 retrieval:
-  method: dense
-  top_k: 5
-  candidate_limit: 30
+  method: weighted_hybrid
+  top_k: 10
+  candidate_limit: 50
   rrf_k: 60
-  sparse_weight: 0.4
-  dense_weight: 0.6
+  sparse_weight: 0.5
+  dense_weight: 0.5
 
 database:
   host: localhost
