@@ -5,10 +5,8 @@
 {% block content %}
   <section class="frame" id="frame-question">
     <header class="topbar">
-      <a class="logo" href="{{ url_for('index') }}">RAG по федеральным нормативным актам</a>
+      <a class="brand-link" href="{{ url_for('index') }}">RAG по федеральным нормативным актам</a>
       <nav class="menu" aria-label="Навигация">
-        <a href="{{ url_for('index') }}">Главная</a>
-        <a href="#examples">Примеры</a>
         {% include "_auth_nav.html" %}
       </nav>
     </header>
@@ -24,21 +22,36 @@
         {% if error %}
           <p class="error">{{ error }}</p>
         {% endif %}
+        {% if login_required and not current_user %}
+          <p class="warning">Чтобы задать вопрос, войдите в систему или зарегистрируйтесь.</p>
+        {% endif %}
         <div>
-          <button class="btn" type="submit" data-loading-label="Формируем...">
-            <span>Получить ответ</span>
-          </button>
+          {% if current_user %}
+            <button class="btn" type="submit" data-loading-label="Формируем...">
+              <span>Получить ответ</span>
+            </button>
+          {% else %}
+            <a class="btn" href="{{ url_for('auth_page') }}" data-auth-open="login">
+              <span>Войдите, чтобы задать вопрос</span>
+            </a>
+          {% endif %}
         </div>
       </form>
 
       <div class="chips" id="examples">
         {% for example in examples %}
-          <form method="post" action="{{ url_for('ask') }}" data-ask-form>
-            <input type="hidden" name="question" value="{{ example }}">
-            <button class="chip" type="submit" data-loading-label="Формируем ответ...">
+          {% if current_user %}
+            <form method="post" action="{{ url_for('ask') }}" data-ask-form>
+              <input type="hidden" name="question" value="{{ example }}">
+              <button class="chip" type="submit" data-loading-label="Формируем ответ...">
+                <span>{{ example }}</span>
+              </button>
+            </form>
+          {% else %}
+            <a class="chip" href="{{ url_for('auth_page') }}" data-auth-open="login" data-example-question="{{ example }}">
               <span>{{ example }}</span>
-            </button>
-          </form>
+            </a>
+          {% endif %}
         {% endfor %}
       </div>
     </main>

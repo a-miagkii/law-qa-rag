@@ -1,0 +1,106 @@
+{% if not current_user %}
+  <div
+    class="auth-modal{% if auth_modal_open %} is-open{% endif %}"
+    id="authModal"
+    data-auth-modal
+    data-open="{{ 'true' if auth_modal_open else 'false' }}"
+    data-mode="{{ auth_mode or 'login' }}"
+    aria-hidden="{{ 'false' if auth_modal_open else 'true' }}"
+  >
+    <div class="auth-backdrop" data-auth-close></div>
+    <section class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <header class="auth-dialog-header">
+        <h2 id="authTitle">Авторизация</h2>
+        <button class="icon-button" type="button" aria-label="Закрыть" data-auth-close>×</button>
+      </header>
+
+      {% if login_required %}
+        <div class="warning">
+          Чтобы задать вопрос, войдите в систему или зарегистрируйтесь.
+        </div>
+      {% endif %}
+      {% if auth_error %}
+        <div class="error auth-error">{{ auth_error }}</div>
+      {% endif %}
+
+      <div class="auth-tabs" role="tablist" aria-label="Авторизация">
+        <button
+          class="auth-tab"
+          type="button"
+          data-auth-tab="login"
+          aria-selected="{{ 'true' if auth_mode != 'register' else 'false' }}"
+        >Вход</button>
+        <button
+          class="auth-tab"
+          type="button"
+          data-auth-tab="register"
+          aria-selected="{{ 'true' if auth_mode == 'register' else 'false' }}"
+        >Регистрация</button>
+      </div>
+
+      <form
+        class="auth-form auth-panel"
+        method="post"
+        action="{{ url_for('auth_login') }}"
+        data-auth-panel="login"
+        {% if auth_mode == 'register' %}hidden{% endif %}
+      >
+        <input name="next" type="hidden" value="{{ auth_next or '/' }}">
+        <label>
+          <span>Логин</span>
+          <input
+            name="external_uid"
+            type="text"
+            autocomplete="username"
+            value="{{ auth_external_uid or '' }}"
+            required
+          >
+        </label>
+        <label>
+          <span>Пароль</span>
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="btn" type="submit">Войти</button>
+      </form>
+
+      <form
+        class="auth-form auth-panel"
+        method="post"
+        action="{{ url_for('auth_register') }}"
+        data-auth-panel="register"
+        {% if auth_mode != 'register' %}hidden{% endif %}
+      >
+        <input name="next" type="hidden" value="{{ auth_next or '/' }}">
+        <label>
+          <span>Логин</span>
+          <input
+            name="external_uid"
+            type="text"
+            autocomplete="username"
+            value="{{ auth_external_uid or '' }}"
+            required
+          >
+        </label>
+        <label>
+          <span>Имя</span>
+          <input
+            name="display_name"
+            type="text"
+            autocomplete="name"
+            value="{{ auth_display_name or '' }}"
+          >
+        </label>
+        <label>
+          <span>Пароль</span>
+          <input name="password" type="password" autocomplete="new-password" required>
+        </label>
+        <label>
+          <span>Повторите пароль</span>
+          <input name="password_confirm" type="password" autocomplete="new-password" required>
+        </label>
+        <button class="btn" type="submit">Зарегистрироваться</button>
+      </form>
+
+    </section>
+  </div>
+{% endif %}

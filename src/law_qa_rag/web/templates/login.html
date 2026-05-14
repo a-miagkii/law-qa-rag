@@ -5,9 +5,8 @@
 {% block content %}
   <section class="frame auth-frame">
     <header class="topbar">
-      <a class="logo" href="{{ url_for('index') }}">RAG по федеральным нормативным актам</a>
+      <a class="brand-link" href="{{ url_for('index') }}">RAG по федеральным нормативным актам</a>
       <nav class="menu" aria-label="Навигация">
-        <a href="{{ url_for('index') }}">Главная</a>
         {% include "_auth_nav.html" %}
       </nav>
     </header>

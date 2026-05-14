@@ -1,9 +1,5 @@
 {% if current_user %}
-  <span class="menu-user">{{ current_user.display_name or current_user.external_uid }}</span>
-  <form class="nav-form" method="post" action="{{ url_for('logout') }}">
-    <button class="nav-button" type="submit">Выйти</button>
-  </form>
+  <a class="user-pill" href="{{ url_for('profile_page') }}">{{ current_user.display_name or current_user.external_uid }}</a>
 {% else %}
-  <a href="{{ url_for('login_page') }}">Войти</a>
-  <a href="{{ url_for('register_page') }}">Регистрация</a>
+  <a class="nav-button" href="{{ url_for('auth_page') }}" data-auth-open="login">Войти</a>
 {% endif %}

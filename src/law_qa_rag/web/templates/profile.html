@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Профиль | RAG по федеральным нормативным актам{% endblock %}
+
+{% block content %}
+  <section class="frame" id="frame-profile">
+    <header class="topbar">
+      <a class="brand-link" href="{{ url_for('index') }}">RAG по федеральным нормативным актам</a>
+      <nav class="menu" aria-label="Навигация">
+        {% include "_auth_nav.html" %}
+      </nav>
+    </header>
+
+    <main class="profile-main">
+      <div class="profile-heading">
+        <h1>Профиль</h1>
+      </div>
+
+      <article class="profile-card">
+        <div>
+          <span class="profile-label">Пользователь</span>
+          <strong>{{ current_user.display_name or current_user.external_uid }}</strong>
+        </div>
+        <div>
+          <span class="profile-label">Логин</span>
+          <strong>{{ current_user.external_uid }}</strong>
+        </div>
+        <form method="post" action="{{ url_for('auth_logout') }}">
+          <button class="logout-button" type="submit">Выйти</button>
+        </form>
+      </article>
+
+      <section class="profile-section">
+        <h2>История вопросов</h2>
+        {% if history %}
+          <div class="history-list">
+            {% for item in history %}
+              <article class="history-item">
+                <div class="history-main">
+                  <time>{{ item.question_created_at }}</time>
+                  <h3>{{ item.question }}</h3>
+                  <div class="history-meta">
+                    {% if item.answer_id %}
+                      <span>{{ item.citation_count }} цитат</span>
+                      {% if item.needs_clarification %}
+                        <span class="status-badge">требует уточнения</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="status-badge">ответ не сохранен</span>
+                    {% endif %}
+                  </div>
+                </div>
+                {% if item.answer_id %}
+                  <a class="small-btn" href="{{ url_for('answer_page', answer_id=item.answer_id) }}">Открыть ответ</a>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">Вы пока не задавали вопросов.</div>
+        {% endif %}
+      </section>
+    </main>
+
+    <footer class="frame-footer">
+      {{ disclaimer }}
+    </footer>
+  </section>
+{% endblock %}

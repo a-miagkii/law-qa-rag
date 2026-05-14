@@ -53,4 +53,75 @@
       showLoading(form);
     });
   });
+
+  const authModal = document.querySelector("[data-auth-modal]");
+
+  function setAuthMode(mode) {
+    if (!authModal) {
+      return;
+    }
+    const safeMode = mode === "register" ? "register" : "login";
+    authModal.dataset.mode = safeMode;
+    authModal.querySelectorAll("[data-auth-tab]").forEach((tab) => {
+      tab.setAttribute("aria-selected", tab.dataset.authTab === safeMode ? "true" : "false");
+    });
+    authModal.querySelectorAll("[data-auth-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.authPanel !== safeMode;
+    });
+  }
+
+  function openAuth(mode) {
+    if (!authModal) {
+      return;
+    }
+    setAuthMode(mode || authModal.dataset.mode || "login");
+    authModal.classList.add("is-open");
+    authModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("has-modal");
+    const firstInput = authModal.querySelector("[data-auth-panel]:not([hidden]) input:not([type='hidden'])");
+    if (firstInput) {
+      firstInput.focus();
+    }
+  }
+
+  function closeAuth() {
+    if (!authModal) {
+      return;
+    }
+    authModal.classList.remove("is-open");
+    authModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("has-modal");
+  }
+
+  document.querySelectorAll("[data-auth-open]").forEach((trigger) => {
+    trigger.addEventListener("click", (event) => {
+      event.preventDefault();
+      const exampleQuestion = trigger.getAttribute("data-example-question");
+      const questionInput = document.querySelector(".question-input");
+      if (exampleQuestion && questionInput) {
+        questionInput.value = exampleQuestion;
+      }
+      openAuth(trigger.getAttribute("data-auth-open"));
+    });
+  });
+
+  if (authModal) {
+    authModal.querySelectorAll("[data-auth-tab]").forEach((tab) => {
+      tab.addEventListener("click", () => setAuthMode(tab.dataset.authTab));
+    });
+    authModal.querySelectorAll("[data-auth-close]").forEach((trigger) => {
+      trigger.addEventListener("click", closeAuth);
+    });
+    if (authModal.dataset.open === "true") {
+      openAuth(authModal.dataset.mode);
+    } else {
+      setAuthMode(authModal.dataset.mode);
+    }
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAuth();
+    }
+  });
 })();
