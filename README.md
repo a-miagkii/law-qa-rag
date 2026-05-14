@@ -8,13 +8,14 @@
 
 ```bash
 cp .env.example .env
-# Заполните в .env локальный POSTGRES_PASSWORD и GIGACHAT_CREDENTIALS.
+# Заполните в .env локальные POSTGRES_PASSWORD, SESSION_SECRET и GIGACHAT_CREDENTIALS.
 docker compose up -d
 
 .venv/bin/python -m pip install -r requirements.txt
 
 # Для существующей БД примените web-миграцию один раз:
 .venv/bin/python scripts/db/apply_migration.py migrations/001_answers_web_fields.sql
+.venv/bin/python scripts/db/apply_migration.py migrations/002_auth_feedback.sql
 
 # Парсинг и чанкинг описаны в docs/1_parsing.md и docs/2_chunking.md.
 # После них должны появиться data/chunks_json/acts.jsonl и data/chunks_json/chunks.jsonl.
