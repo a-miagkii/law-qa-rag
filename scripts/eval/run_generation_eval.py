@@ -9,6 +9,8 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -23,7 +25,7 @@ from law_qa_rag.llm.gigachat_client import (
 
 
 DEFAULT_INPUT = Path("eval/gold_resolved.jsonl")
-DEFAULT_OUT_DIR = Path("eval/results")
+DEFAULT_OUT_DIR = Path("eval/results/generation")
 
 
 def parse_args() -> argparse.Namespace:
@@ -206,6 +208,26 @@ def write_manual_review_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             )
 
 
+def write_config_snapshot(path: Path, args: argparse.Namespace, config: AppConfig, question_count: int) -> None:
+    """Сохраняет YAML snapshot параметров generation-эксперимента."""
+    payload = {
+        "experiment": {
+            "task": "answer_generation",
+            "question_count": question_count,
+            "input_file": str(args.input),
+            "settings_file": str(args.settings),
+        },
+        "embedding": asdict(config.embedding),
+        "retrieval": asdict(config.retrieval),
+        "llm": asdict(config.llm),
+        "outputs": {
+            "detailed_runs": str(args.out_dir / "generation_all_v1.jsonl"),
+            "manual_review": str(args.out_dir / "generation_all_v1.csv"),
+        },
+    }
+    path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
 def main() -> None:
     args = parse_args()
     if not args.db_url:
@@ -242,13 +264,16 @@ def main() -> None:
             rows.append(exception_to_row(item, exc, total_latency_ms))
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    runs_path = args.out_dir / "generation_runs.jsonl"
-    review_path = args.out_dir / "generation_manual_review.csv"
+    runs_path = args.out_dir / "generation_all_v1.jsonl"
+    review_path = args.out_dir / "generation_all_v1.csv"
+    snapshot_path = args.out_dir / "config_snapshot.yaml"
     write_jsonl(runs_path, rows)
     write_manual_review_csv(review_path, rows)
+    write_config_snapshot(snapshot_path, args, config, len(items))
 
     print(f"[OK] wrote: {runs_path}")
     print(f"[OK] wrote: {review_path}")
+    print(f"[OK] wrote: {snapshot_path}")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,8 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -19,7 +21,7 @@ from law_qa_rag.retrieval import RetrievedChunk, retrieve_chunks
 
 
 DEFAULT_INPUT = Path("eval/gold_resolved.jsonl")
-DEFAULT_OUT_DIR = Path("eval/results")
+DEFAULT_OUT_DIR = Path("eval/results/retrieval")
 
 
 def parse_args() -> argparse.Namespace:
@@ -306,6 +308,43 @@ def write_error_analysis(path: Path, detailed_rows: list[dict[str, Any]]) -> Non
             )
 
 
+def write_config_snapshot(
+    path: Path,
+    args: argparse.Namespace,
+    config: AppConfig,
+    eval_configs: list[tuple[str, RetrievalConfig]],
+    question_count: int,
+) -> None:
+    """Сохраняет YAML snapshot параметров retrieval-эксперимента."""
+    payload = {
+        "experiment": {
+            "task": "retrieval",
+            "question_count": question_count,
+            "input_file": str(args.input),
+            "settings_file": str(args.settings),
+        },
+        "embedding": asdict(config.embedding),
+        "retrieval_eval": {
+            "top_k": args.top_k,
+            "candidate_limit": args.candidate_limit,
+            "rrf_k": args.rrf_k or config.retrieval.rrf_k,
+            "methods": [
+                {
+                    "config_name": config_name,
+                    **asdict(retrieval_config),
+                }
+                for config_name, retrieval_config in eval_configs
+            ],
+        },
+        "outputs": {
+            "detailed_runs": str(args.out_dir / "retrieval_runs.jsonl"),
+            "summary_metrics": str(args.out_dir / "summary_metrics.csv"),
+            "error_analysis": str(args.out_dir / "error_analysis.csv"),
+        },
+    }
+    path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
 def main() -> None:
     args = parse_args()
     if not args.db_url:
@@ -376,15 +415,18 @@ def main() -> None:
     detailed_path = args.out_dir / "retrieval_runs.jsonl"
     summary_path = args.out_dir / "summary_metrics.csv"
     errors_path = args.out_dir / "error_analysis.csv"
+    snapshot_path = args.out_dir / "config_snapshot.yaml"
     write_detailed(detailed_path, detailed_rows)
     write_summary(summary_path, detailed_rows)
     write_error_analysis(errors_path, detailed_rows)
+    write_config_snapshot(snapshot_path, args, config, eval_configs, len(items))
 
     print(f"[OK] configs: {[name for name, _ in eval_configs]}")
     print(f"[OK] runs: {total_runs}")
     print(f"[OK] wrote: {detailed_path}")
     print(f"[OK] wrote: {summary_path}")
     print(f"[OK] wrote: {errors_path}")
+    print(f"[OK] wrote: {snapshot_path}")
 
 
 if __name__ == "__main__":
