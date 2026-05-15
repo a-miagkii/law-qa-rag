@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import asdict, dataclass
-from typing import Any
 from pathlib import Path
+from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from law_qa_rag.config import AppConfig
@@ -204,19 +205,18 @@ def parse_model_answer(raw_content: str) -> ModelAnswer:
         except (ValidationError, ValueError, TypeError, json.JSONDecodeError) as exc:
             last_exc = exc
 
-    debug_dir = Path("eval/results/llm_debug")
+    debug_dir = Path(os.getenv("RAG_LLM_DEBUG_DIR", "logs/llm_debug"))
     debug_dir.mkdir(parents=True, exist_ok=True)
 
     debug_path = debug_dir / f"invalid_llm_response_{time.time_ns()}.txt"
     debug_path.write_text(content, encoding="utf-8")
 
-    last_debug_path = Path("eval/results/last_invalid_llm_response.txt")
+    last_debug_path = debug_dir / "last_invalid_llm_response.txt"
     last_debug_path.parent.mkdir(parents=True, exist_ok=True)
     last_debug_path.write_text(content, encoding="utf-8")
 
     raise ValueError(
-        f"Модель вернула невалидный JSON: {last_exc}. "
-        f"Сырой ответ сохранен в {debug_path}"
+        f"Модель вернула невалидный JSON: {last_exc}. Сырой ответ сохранен в {debug_path}"
     ) from last_exc
 
 
@@ -226,7 +226,9 @@ def build_answer_citations(
 ) -> list[AnswerCitation]:
     """Собирает точные цитаты по used_chunk_ids."""
     chunks_by_id = {chunk.chunk_id: chunk for chunk in selected_chunks}
-    unknown_ids = [chunk_id for chunk_id in model_answer.used_chunk_ids if chunk_id not in chunks_by_id]
+    unknown_ids = [
+        chunk_id for chunk_id in model_answer.used_chunk_ids if chunk_id not in chunks_by_id
+    ]
     if unknown_ids:
         raise ValueError(f"Модель сослалась на неизвестные chunk_id: {unknown_ids}")
 
