@@ -168,34 +168,6 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 
 -- =========================
--- EXPERIMENTS
--- =========================
-CREATE TABLE IF NOT EXISTS experiments (
-    id bigserial PRIMARY KEY,
-
-    name varchar(128) NOT NULL,
-    description text,
-
-    params_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
--- =========================
--- EXPERIMENT RUNS
--- =========================
-CREATE TABLE IF NOT EXISTS experiment_runs (
-    id bigserial PRIMARY KEY,
-
-    experiment_id bigint NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
-    query_id bigint NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
-
-    metrics_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
--- =========================
 -- INDEXES: ACTS
 -- =========================
 CREATE INDEX IF NOT EXISTS idx_acts_kind
@@ -241,8 +213,5 @@ CREATE INDEX IF NOT EXISTS idx_answer_citations_chunk_id
 
 CREATE INDEX IF NOT EXISTS idx_feedback_answer_id
     ON feedback (answer_id);
-
-CREATE INDEX IF NOT EXISTS idx_experiment_runs_experiment_query
-    ON experiment_runs (experiment_id, query_id);
 
 COMMIT;
