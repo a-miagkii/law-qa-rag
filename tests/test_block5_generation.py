@@ -164,10 +164,15 @@ class Block5GenerationTests(unittest.TestCase):
             def __init__(self, model_name: str, device: str) -> None:
                 calls.append((model_name, device))
 
-        original_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
+        original_import = (
+            __builtins__["__import__"]
+            if isinstance(__builtins__, dict)
+            else __builtins__.__import__
+        )
 
         def fake_import(name: str, *args: object, **kwargs: object) -> object:
             if name == "sentence_transformers":
+
                 class FakeModule:
                     SentenceTransformer = FakeSentenceTransformer
 
@@ -241,8 +246,7 @@ class Block5GenerationTests(unittest.TestCase):
 
     def test_valid_model_json_passes_validation(self) -> None:
         answer = parse_model_answer(
-            '{"answer": "Только по контексту", "used_chunk_ids": [1], '
-            '"needs_clarification": false}'
+            '{"answer": "Только по контексту", "used_chunk_ids": [1], "needs_clarification": false}'
         )
 
         self.assertEqual(answer.used_chunk_ids, [1])

@@ -57,7 +57,9 @@ def main() -> None:
     """Точка входа CLI."""
     args = parse_args()
     if not args.db_url:
-        raise ValueError("Нужен URL БД. Передайте --db-url или заполните DATABASE_URL/POSTGRES_* в .env.")
+        raise ValueError(
+            "Нужен URL БД. Передайте --db-url или заполните DATABASE_URL/POSTGRES_* в .env."
+        )
 
     config = load_config(args.settings)
     provider = GigaChatProvider(model=config.llm.model)

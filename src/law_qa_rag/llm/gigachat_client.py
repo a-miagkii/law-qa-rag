@@ -178,17 +178,14 @@ def validate_model_available(provider: GigaChatProvider, model: str | None) -> N
 
     available = provider.list_models()
     if model not in available:
-        raise RuntimeError(
-            f"Модель {model!r} недоступна. Доступные модели: {', '.join(available)}"
-        )
+        raise RuntimeError(f"Модель {model!r} недоступна. Доступные модели: {', '.join(available)}")
 
 
 def ensure_gigachat_credentials() -> None:
     """Проверяет, что в окружении есть GigaChat credentials."""
     if not os.getenv("GIGACHAT_CREDENTIALS") and not os.getenv("GIGACHAT_ACCESS_TOKEN"):
         raise RuntimeError(
-            "Нужны GigaChat credentials: задайте GIGACHAT_CREDENTIALS "
-            "или GIGACHAT_ACCESS_TOKEN."
+            "Нужны GigaChat credentials: задайте GIGACHAT_CREDENTIALS или GIGACHAT_ACCESS_TOKEN."
         )
 
 

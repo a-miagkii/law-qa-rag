@@ -99,16 +99,8 @@ def build_embedding_config(
     if not isinstance(embedding, dict):
         embedding = {}
 
-    model_name = (
-        embedding.get("embedding_model")
-        or embedding.get("model")
-        or DEFAULT_MODEL_NAME
-    )
-    embedding_dim = (
-        embedding.get("embedding_dim")
-        or embedding.get("dim")
-        or DEFAULT_EMBEDDING_DIM
-    )
+    model_name = embedding.get("embedding_model") or embedding.get("model") or DEFAULT_MODEL_NAME
+    embedding_dim = embedding.get("embedding_dim") or embedding.get("dim") or DEFAULT_EMBEDDING_DIM
 
     return EmbeddingConfig(
         model_name=str(model_name),
@@ -252,14 +244,10 @@ def encode_query(
     )
 
     if embedding.ndim != 2:
-        raise RuntimeError(
-            f"Ожидался 2D массив embeddings, получена shape {embedding.shape}"
-        )
+        raise RuntimeError(f"Ожидался 2D массив embeddings, получена shape {embedding.shape}")
 
     if embedding.shape[0] != 1:
-        raise RuntimeError(
-            f"Ожидался один query embedding, получена shape {embedding.shape}"
-        )
+        raise RuntimeError(f"Ожидался один query embedding, получена shape {embedding.shape}")
 
     if embedding.shape[1] != expected_dim:
         raise RuntimeError(

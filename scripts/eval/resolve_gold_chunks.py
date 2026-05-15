@@ -140,7 +140,7 @@ def find_chunks_for_ref(
             c.text
         FROM chunks c
         JOIN acts a ON a.id = c.act_id
-        WHERE {' AND '.join(where)}
+        WHERE {" AND ".join(where)}
         ORDER BY a.canonical_key, c.chunk_index, c.id;
     """
     cur.execute(query, params)
@@ -156,7 +156,8 @@ def find_chunks_for_ref(
         if needles:
             lowered = [needle.lower() for needle in needles]
             filtered = [
-                row for row in rows
+                row
+                for row in rows
                 if any(needle in str(row.get("text") or "").lower() for needle in lowered)
             ]
             if filtered:
@@ -204,7 +205,11 @@ def resolve_items(
                     if is_answerable:
                         unresolved_rows.append(make_unresolved_row(item, None, "no_gold_refs"))
                     out = dict(item)
-                    out["gold_chunk_ids"] = list(dict.fromkeys(int(x) for x in item.get("gold_chunk_ids", []) if str(x).isdigit()))
+                    out["gold_chunk_ids"] = list(
+                        dict.fromkeys(
+                            int(x) for x in item.get("gold_chunk_ids", []) if str(x).isdigit()
+                        )
+                    )
                     out["resolved_refs"] = []
                     out["resolution_status"] = status
                     out["resolution_warnings"] = warnings
@@ -227,7 +232,9 @@ def resolve_items(
 
                     if not rows:
                         failed_refs += 1
-                        unresolved_rows.append(make_unresolved_row(item, ref, f"no_chunks_found:{resolved_by}", idx))
+                        unresolved_rows.append(
+                            make_unresolved_row(item, ref, f"no_chunks_found:{resolved_by}", idx)
+                        )
                     else:
                         if len(rows) > max_matches_per_ref:
                             warnings.append(
@@ -240,7 +247,9 @@ def resolve_items(
                     try:
                         existing_ids.append(int(raw_id))
                     except (TypeError, ValueError):
-                        warnings.append(f"{item_id}: non-integer existing gold_chunk_id ignored: {raw_id!r}")
+                        warnings.append(
+                            f"{item_id}: non-integer existing gold_chunk_id ignored: {raw_id!r}"
+                        )
 
                 all_chunk_ids = list(dict.fromkeys(existing_ids + all_chunk_ids))
 

@@ -29,21 +29,32 @@ DEFAULT_OUT_DIR = Path("eval/results/generation")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Запустить ручную проверку генерации ответа на подмножестве вопросов")
+    parser = argparse.ArgumentParser(
+        description="Запустить ручную проверку генерации ответа на подмножестве вопросов"
+    )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--settings", type=Path, default=DEFAULT_SETTINGS_PATH)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--db-url", type=str, default=get_database_url(required=False))
     parser.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto")
     parser.add_argument("--limit", type=int, default=12)
-    parser.add_argument("--ids", type=str, default=None, help="Список id через запятую; если задан, --limit не применяется")
-    parser.add_argument("--retrieval-method", choices=["sparse", "dense", "weighted_hybrid"], default=None)
+    parser.add_argument(
+        "--ids",
+        type=str,
+        default=None,
+        help="Список id через запятую; если задан, --limit не применяется",
+    )
+    parser.add_argument(
+        "--retrieval-method", choices=["sparse", "dense", "weighted_hybrid"], default=None
+    )
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--candidate-limit", type=int, default=None)
     parser.add_argument("--rrf-k", type=int, default=None)
     parser.add_argument("--sparse-weight", type=float, default=None)
     parser.add_argument("--dense-weight", type=float, default=None)
-    parser.add_argument("--include-unresolved", action="store_true", help="Включать вопросы без gold_chunk_ids")
+    parser.add_argument(
+        "--include-unresolved", action="store_true", help="Включать вопросы без gold_chunk_ids"
+    )
     return parser.parse_args()
 
 
@@ -108,7 +119,9 @@ def override_config(config: AppConfig, args: argparse.Namespace) -> AppConfig:
     return replace(config, retrieval=replace(config.retrieval, **updates))
 
 
-def result_to_row(item: dict[str, Any], result: GeneratedAnswer, total_latency_ms: int) -> dict[str, Any]:
+def result_to_row(
+    item: dict[str, Any], result: GeneratedAnswer, total_latency_ms: int
+) -> dict[str, Any]:
     payload = result.to_dict()
     return {
         "id": item.get("id"),
@@ -192,9 +205,15 @@ def write_manual_review_csv(path: Path, rows: list[dict[str, Any]]) -> None:
                     "id": row.get("id"),
                     "category": row.get("category"),
                     "question": row.get("question"),
-                    "gold_chunk_ids": json.dumps(row.get("gold_chunk_ids") or [], ensure_ascii=False),
-                    "retrieved_chunk_ids": json.dumps(row.get("retrieved_chunk_ids") or [], ensure_ascii=False),
-                    "used_chunk_ids": json.dumps(row.get("used_chunk_ids") or [], ensure_ascii=False),
+                    "gold_chunk_ids": json.dumps(
+                        row.get("gold_chunk_ids") or [], ensure_ascii=False
+                    ),
+                    "retrieved_chunk_ids": json.dumps(
+                        row.get("retrieved_chunk_ids") or [], ensure_ascii=False
+                    ),
+                    "used_chunk_ids": json.dumps(
+                        row.get("used_chunk_ids") or [], ensure_ascii=False
+                    ),
                     "needs_clarification_expected": row.get("needs_clarification_expected"),
                     "needs_clarification": row.get("needs_clarification"),
                     "answer": row.get("answer") or "",
@@ -208,7 +227,9 @@ def write_manual_review_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             )
 
 
-def write_config_snapshot(path: Path, args: argparse.Namespace, config: AppConfig, question_count: int) -> None:
+def write_config_snapshot(
+    path: Path, args: argparse.Namespace, config: AppConfig, question_count: int
+) -> None:
     """Сохраняет YAML snapshot параметров generation-эксперимента."""
     payload = {
         "experiment": {
@@ -236,7 +257,9 @@ def main() -> None:
     config = override_config(load_config(args.settings), args)
     items = select_items(read_jsonl(args.input), args)
     if not items:
-        raise SystemExit("[ERROR] Нет вопросов для проверки генерации. Сначала выполните resolve_gold_chunks.py.")
+        raise SystemExit(
+            "[ERROR] Нет вопросов для проверки генерации. Сначала выполните resolve_gold_chunks.py."
+        )
 
     ensure_gigachat_credentials()
     provider = GigaChatProvider(model=config.llm.model)

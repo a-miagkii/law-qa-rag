@@ -44,7 +44,9 @@ def main() -> None:
     """Точка входа CLI."""
     args = parse_args()
     if not args.db_url:
-        raise ValueError("Нужен URL БД. Передайте --db-url или заполните DATABASE_URL/POSTGRES_* в .env.")
+        raise ValueError(
+            "Нужен URL БД. Передайте --db-url или заполните DATABASE_URL/POSTGRES_* в .env."
+        )
 
     sql_text = read_migration_sql(args.migration_file)
     apply_migration(args.db_url, sql_text)

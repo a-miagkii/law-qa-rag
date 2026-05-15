@@ -71,13 +71,7 @@ def collect_input_files(input_path: Path) -> tuple[list[Path], list[Path]]:
     if input_path.is_file():
         candidates = [input_path]
     else:
-        candidates = sorted(
-            [
-                path
-                for path in input_path.iterdir()
-                if path.is_file()
-            ]
-        )
+        candidates = sorted([path for path in input_path.iterdir() if path.is_file()])
 
     files: list[Path] = []
     skipped: list[Path] = []
@@ -446,7 +440,11 @@ def extract_title(soup: BeautifulSoup) -> str | None:
     html_title = soup.find("title")
     if html_title:
         title = normalize_title_case(html_title.get_text(" ", strip=True))
-        if title and title.lower() not in {"complex", "document"} and not is_bad_title_candidate(title):
+        if (
+            title
+            and title.lower() not in {"complex", "document"}
+            and not is_bad_title_candidate(title)
+        ):
             return title
 
     for p in soup.find_all("p"):
@@ -496,7 +494,9 @@ def parse_act_metadata(soup: BeautifulSoup, path: Path) -> dict[str, Any]:
     act_kind = infer_act_kind(header.get("doc_type"), title)
 
     act: dict[str, Any] = {
-        "canonical_key": make_canonical_key(act_kind, header.get("doc_date"), header.get("doc_number")),
+        "canonical_key": make_canonical_key(
+            act_kind, header.get("doc_date"), header.get("doc_number")
+        ),
         "act_kind": act_kind,
         "doc_type": header.get("doc_type"),
         "title": title,
@@ -674,7 +674,6 @@ def merge_constitution_chapter_title(
     combined = f"{chapter}. {title_text}"
     current_context["chapter"] = combined
 
-
     for node in reversed(nodes):
         if node.get("node_type") == "chapter":
             node["text"] = combined
@@ -701,8 +700,6 @@ def should_skip_service_paragraph(
     return False
 
 
-
-
 def is_signature_start(cls: str, text: str) -> bool:
     """
     Detects final presidential signature block.
@@ -725,12 +722,7 @@ def is_signature_start(cls: str, text: str) -> bool:
 
 
 def make_source_anchor(tag: Tag, fallback_order: int) -> str | None:
-    return (
-        tag.get("id")
-        or tag.get("data-n")
-        or tag.get("name")
-        or f"p{fallback_order}"
-    )
+    return tag.get("id") or tag.get("data-n") or tag.get("name") or f"p{fallback_order}"
 
 
 def append_heading_node(
@@ -741,16 +733,18 @@ def append_heading_node(
     source_anchor: str | None,
     current_context: dict[str, str | None],
 ) -> None:
-    result["nodes"].append({
-        "order": order,
-        "node_type": node_type,
-        "text": heading_text,
-        "source_anchor": source_anchor,
-        "article_no": extract_article_no(current_context.get("article")),
-        "clause_no": None,
-        "structure_ref": build_structure_ref(current_context),
-        "context": deepcopy(current_context),
-    })
+    result["nodes"].append(
+        {
+            "order": order,
+            "node_type": node_type,
+            "text": heading_text,
+            "source_anchor": source_anchor,
+            "article_no": extract_article_no(current_context.get("article")),
+            "clause_no": None,
+            "structure_ref": build_structure_ref(current_context),
+            "context": deepcopy(current_context),
+        }
+    )
 
 
 def append_text_node(
@@ -763,25 +757,30 @@ def append_text_node(
     clause_no, body_text = extract_clause_info(text)
     node_type = "preamble" if is_preamble_context(current_context) else "paragraph"
 
-    result["nodes"].append({
-        "order": order,
-        "node_type": node_type,
-        "text": body_text,
-        "raw_text": text,
-        "source_anchor": source_anchor,
-        "article_no": extract_article_no(current_context.get("article")),
-        "clause_no": clause_no,
-        "structure_ref": build_structure_ref(current_context, clause_no),
-        "context": deepcopy(current_context),
-    })
+    result["nodes"].append(
+        {
+            "order": order,
+            "node_type": node_type,
+            "text": body_text,
+            "raw_text": text,
+            "source_anchor": source_anchor,
+            "article_no": extract_article_no(current_context.get("article")),
+            "clause_no": clause_no,
+            "structure_ref": build_structure_ref(current_context, clause_no),
+            "context": deepcopy(current_context),
+        }
+    )
+
 
 def is_lost_force_only_text(text: str) -> bool:
     text = normalize_space(text).lower()
-    return bool(re.fullmatch(
-        r"(часть|пункт|подпункт|абзац)?\s*утратил[ао]?\s+силу\.?",
-        text,
-        flags=re.IGNORECASE,
-    ))
+    return bool(
+        re.fullmatch(
+            r"(часть|пункт|подпункт|абзац)?\s*утратил[ао]?\s+силу\.?",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def parse_document(path: Path) -> dict[str, Any]:
@@ -826,7 +825,7 @@ def parse_document(path: Path) -> dict[str, Any]:
         if is_constitution_chapter_title(cls, text, result["act"], current_context):
             merge_constitution_chapter_title(current_context, result["nodes"], text)
             continue
-        
+
         if is_lost_force_only_text(text) and not ARTICLE_RE.match(text):
             append_text_node(
                 result=result,
@@ -904,21 +903,23 @@ def parse_path(input_path: Path, output_dir: Path) -> None:
         act = parsed["act"]
         warnings = validate_parsed_document(parsed)
 
-        manifest.append({
-            "source_file": act.get("source_file"),
-            "json_file": out_path.name,
-            "canonical_key": act.get("canonical_key"),
-            "act_kind": act.get("act_kind"),
-            "doc_type": act.get("doc_type"),
-            "title": act.get("title"),
-            "doc_number": act.get("doc_number"),
-            "doc_date": act.get("doc_date"),
-            "edition_as_of": act.get("edition_as_of"),
-            "status": act.get("status"),
-            "source_system": act.get("source_system"),
-            "node_count": len(parsed["nodes"]),
-            "warnings": warnings,
-        })
+        manifest.append(
+            {
+                "source_file": act.get("source_file"),
+                "json_file": out_path.name,
+                "canonical_key": act.get("canonical_key"),
+                "act_kind": act.get("act_kind"),
+                "doc_type": act.get("doc_type"),
+                "title": act.get("title"),
+                "doc_number": act.get("doc_number"),
+                "doc_date": act.get("doc_date"),
+                "edition_as_of": act.get("edition_as_of"),
+                "status": act.get("status"),
+                "source_system": act.get("source_system"),
+                "node_count": len(parsed["nodes"]),
+                "warnings": warnings,
+            }
+        )
 
         print(f"[OK] {path.name} -> {out_path.name} ({len(parsed['nodes'])} nodes)")
         for warning in warnings:

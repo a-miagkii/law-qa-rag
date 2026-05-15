@@ -25,7 +25,9 @@ DEFAULT_OUT_DIR = Path("eval/results/retrieval")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Оценить качество retrieval на размеченных вопросах")
+    parser = argparse.ArgumentParser(
+        description="Оценить качество retrieval на размеченных вопросах"
+    )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--settings", type=Path, default=DEFAULT_SETTINGS_PATH)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
@@ -46,8 +48,12 @@ def parse_args() -> argparse.Namespace:
         default="0.4:0.6,0.5:0.5,0.3:0.7",
         help="Веса hybrid в формате sparse:dense,sparse:dense",
     )
-    parser.add_argument("--limit", type=int, default=None, help="Ограничить число вопросов для пробного запуска")
-    parser.add_argument("--no-warmup", action="store_true", help="Не выполнять прогрев dense-модели")
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Ограничить число вопросов для пробного запуска"
+    )
+    parser.add_argument(
+        "--no-warmup", action="store_true", help="Не выполнять прогрев dense-модели"
+    )
     parser.add_argument(
         "--include-unresolved",
         action="store_true",
@@ -102,7 +108,9 @@ def parse_hybrid_weights(value: str) -> list[tuple[float, float]]:
     return result
 
 
-def build_eval_configs(args: argparse.Namespace, config: AppConfig) -> list[tuple[str, RetrievalConfig]]:
+def build_eval_configs(
+    args: argparse.Namespace, config: AppConfig
+) -> list[tuple[str, RetrievalConfig]]:
     methods = parse_methods(args.methods)
     hybrid_weights = parse_hybrid_weights(args.hybrid_weights)
     base = config.retrieval
@@ -248,14 +256,26 @@ def write_summary(path: Path, detailed_rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for config_name, rows in by_config.items():
-            metric_names = ["hit_at_1", "hit_at_5", "hit_at_10", "recall_at_5", "recall_at_10", "mrr"]
+            metric_names = [
+                "hit_at_1",
+                "hit_at_5",
+                "hit_at_10",
+                "recall_at_5",
+                "recall_at_10",
+                "mrr",
+            ]
             out: dict[str, Any] = {"config_name": config_name, "query_count": len(rows)}
             for metric_name in metric_names:
                 out[metric_name] = mean(row["metrics"][metric_name] for row in rows)
             latencies = [float(row.get("latency_ms") or 0.0) for row in rows]
             out["avg_latency_ms"] = mean(latencies)
             out["median_latency_ms"] = statistics.median(latencies) if latencies else 0.0
-            writer.writerow({key: round(value, 6) if isinstance(value, float) else value for key, value in out.items()})
+            writer.writerow(
+                {
+                    key: round(value, 6) if isinstance(value, float) else value
+                    for key, value in out.items()
+                }
+            )
 
 
 def mean(values: Any) -> float:
@@ -298,7 +318,9 @@ def write_error_analysis(path: Path, detailed_rows: list[dict[str, Any]]) -> Non
                     "config_name": row.get("config_name"),
                     "error_type": error_type,
                     "first_hit_rank": metrics.get("first_hit_rank") if metrics else "",
-                    "gold_chunk_ids": json.dumps(row.get("gold_chunk_ids") or [], ensure_ascii=False),
+                    "gold_chunk_ids": json.dumps(
+                        row.get("gold_chunk_ids") or [], ensure_ascii=False
+                    ),
                     "top1_chunk_id": top1.get("chunk_id"),
                     "top1_act_title": top1.get("act_title"),
                     "top1_article_no": top1.get("article_no"),
@@ -359,7 +381,13 @@ def main() -> None:
         items = items[: args.limit]
 
     if items and not args.no_warmup:
-        warmup_if_needed(args.db_url, config, eval_configs, args.device, str(items[0].get("question") or "тестовый вопрос"))
+        warmup_if_needed(
+            args.db_url,
+            config,
+            eval_configs,
+            args.device,
+            str(items[0].get("question") or "тестовый вопрос"),
+        )
 
     detailed_rows: list[dict[str, Any]] = []
     total_runs = 0
@@ -403,11 +431,18 @@ def main() -> None:
                     "gold_chunk_ids": gold,
                     "gold_notes": item.get("gold_notes"),
                     "latency_ms": latency_ms,
-                    "status": "ok" if exception is None and gold else "error" if exception else "skipped_no_gold",
+                    "status": "ok"
+                    if exception is None and gold
+                    else "error"
+                    if exception
+                    else "skipped_no_gold",
                     "exception": exception,
                     "metrics": metrics,
                     "retrieved_chunk_ids": retrieved_ids,
-                    "retrieved": [chunk_to_result(chunk, rank) for rank, chunk in enumerate(retrieved_chunks, start=1)],
+                    "retrieved": [
+                        chunk_to_result(chunk, rank)
+                        for rank, chunk in enumerate(retrieved_chunks, start=1)
+                    ],
                 }
             )
 

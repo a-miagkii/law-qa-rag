@@ -62,10 +62,7 @@ def hash_password(password: str) -> str:
         salt,
         PASSWORD_HASH_ITERATIONS,
     )
-    return (
-        f"{PASSWORD_HASH_ALGORITHM}${PASSWORD_HASH_ITERATIONS}"
-        f"${salt.hex()}${digest.hex()}"
-    )
+    return f"{PASSWORD_HASH_ALGORITHM}${PASSWORD_HASH_ITERATIONS}${salt.hex()}${digest.hex()}"
 
 
 def verify_password(password: str, password_hash: str | None) -> bool:
@@ -366,10 +363,7 @@ def save_answer_run_in_conn(
         )
         answer_id = int(_row_value(cur.fetchone(), "id"))
 
-        citation_rows = [
-            _citation_row(answer_id, citation)
-            for citation in result.answer_citations
-        ]
+        citation_rows = [_citation_row(answer_id, citation) for citation in result.answer_citations]
         if citation_rows:
             cur.executemany(
                 """
@@ -610,10 +604,7 @@ def load_source_page(
                     """,
                     {"answer_id": answer_id, "act_id": act_id},
                 )
-                cited_by_chunk_id = {
-                    int(row["chunk_id"]): dict(row)
-                    for row in cur.fetchall()
-                }
+                cited_by_chunk_id = {int(row["chunk_id"]): dict(row) for row in cur.fetchall()}
 
             cur.execute(
                 """
@@ -717,18 +708,23 @@ def should_show_edition_note(act: dict[str, Any]) -> bool:
         for value in duplicates
         if value is not None and str(value).strip()
     }
-    normalized_duplicates |= {
-        f"редакция {value}"
-        for value in normalized_duplicates
-    }
+    normalized_duplicates |= {f"редакция {value}" for value in normalized_duplicates}
     if normalized_note in normalized_duplicates:
         return False
 
     edition_label = _normalize_display_text(act.get("edition_as_of_label"))
     status_label = _normalize_display_text(act.get("status_label"))
-    if edition_label and edition_label in normalized_note and len(normalized_note) <= len(edition_label) + 24:
+    if (
+        edition_label
+        and edition_label in normalized_note
+        and len(normalized_note) <= len(edition_label) + 24
+    ):
         return False
-    if status_label and status_label in normalized_note and len(normalized_note) <= len(status_label) + 24:
+    if (
+        status_label
+        and status_label in normalized_note
+        and len(normalized_note) <= len(status_label) + 24
+    ):
         return False
     return True
 
@@ -759,7 +755,7 @@ def _strip_display_prefix(text: str, prefix: str) -> str:
     if not text or not prefix:
         return text
     if _starts_with_display_prefix(text, prefix):
-        return text[len(prefix):].lstrip(" \t\r\n:;.,-—–")
+        return text[len(prefix) :].lstrip(" \t\r\n:;.,-—–")
 
     pattern = r"^\s*" + r"\s+".join(re.escape(part) for part in prefix.split())
     pattern += r"(?=$|[\s:;.,\-—–])\s*[:;.,\-—–]*\s*"
@@ -771,9 +767,7 @@ def _strip_redundant_display_lines(text: str, candidates: list[str]) -> str:
     """Удаляет первые строки, если они дублируют реквизиты или структуру."""
     lines = [line.strip() for line in text.splitlines()]
     candidate_set = {
-        _normalize_display_text(candidate)
-        for candidate in candidates
-        if candidate.strip()
+        _normalize_display_text(candidate) for candidate in candidates if candidate.strip()
     }
     while lines:
         line = lines[0]

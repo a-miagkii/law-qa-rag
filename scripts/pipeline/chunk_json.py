@@ -154,11 +154,7 @@ def get_embedding_model(settings: dict[str, Any]) -> str:
     embedding = settings.get("embedding") or {}
     if not isinstance(embedding, dict):
         return ChunkConfig.embedding_model
-    return (
-        embedding.get("embedding_model")
-        or embedding.get("model")
-        or ChunkConfig.embedding_model
-    )
+    return embedding.get("embedding_model") or embedding.get("model") or ChunkConfig.embedding_model
 
 
 def resolve_chunk_profile(settings: dict[str, Any], requested_profile: str | None) -> str | None:
@@ -711,10 +707,7 @@ def split_group_into_chunks(
     if full_chunk["token_count"] <= config.chunk_size_tokens:
         return [full_chunk]
 
-    body_nodes = [
-        node for node in group_nodes
-        if node.get("node_type") in TEXT_NODE_TYPES
-    ]
+    body_nodes = [node for node in group_nodes if node.get("node_type") in TEXT_NODE_TYPES]
 
     if not body_nodes:
         return []

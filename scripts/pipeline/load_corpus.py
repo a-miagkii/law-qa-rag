@@ -236,14 +236,8 @@ def validate_chunks(
         start_order = chunk.get("start_node_order")
         end_order = chunk.get("end_node_order")
 
-        if (
-            start_order is not None
-            and end_order is not None
-            and end_order < start_order
-        ):
-            raise ValueError(
-                f"chunks.jsonl row {i}: end_node_order < start_node_order"
-            )
+        if start_order is not None and end_order is not None and end_order < start_order:
+            raise ValueError(f"chunks.jsonl row {i}: end_node_order < start_node_order")
 
 
 def normalize_chunk_row(
@@ -303,10 +297,7 @@ def get_act_id_map(cur: psycopg.Cursor) -> dict[str, int]:
     cur.execute("SELECT id, canonical_key FROM acts;")
     rows = cur.fetchall()
 
-    return {
-        canonical_key: act_id
-        for act_id, canonical_key in rows
-    }
+    return {canonical_key: act_id for act_id, canonical_key in rows}
 
 
 def load_chunks(

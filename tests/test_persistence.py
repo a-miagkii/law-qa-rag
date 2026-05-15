@@ -25,7 +25,9 @@ from law_qa_rag.persistence import (
 
 
 class FakeCursor:
-    def __init__(self, fetchone_values: list[Any], fetchall_values: list[Any] | None = None) -> None:
+    def __init__(
+        self, fetchone_values: list[Any], fetchall_values: list[Any] | None = None
+    ) -> None:
         self.fetchone_values = fetchone_values
         self.fetchall_values = fetchall_values or []
         self.executed: list[tuple[str, Any]] = []
@@ -51,7 +53,9 @@ class FakeCursor:
 
 
 class FakeConnection:
-    def __init__(self, fetchone_values: list[Any], fetchall_values: list[Any] | None = None) -> None:
+    def __init__(
+        self, fetchone_values: list[Any], fetchall_values: list[Any] | None = None
+    ) -> None:
         self.cursor_obj = FakeCursor(fetchone_values, fetchall_values=fetchall_values)
         self.committed = False
 
@@ -280,9 +284,7 @@ class PersistenceTests(unittest.TestCase):
         )
 
         self.assertEqual(answer_id, 22)
-        self.assertFalse(
-            any("INSERT INTO users" in query for query, _ in conn.cursor_obj.executed)
-        )
+        self.assertFalse(any("INSERT INTO users" in query for query, _ in conn.cursor_obj.executed))
         query_params = next(
             params
             for _query, params in conn.cursor_obj.executed

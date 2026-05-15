@@ -492,7 +492,9 @@ class WebAppTests(unittest.TestCase):
         with (
             patch("law_qa_rag.web.app._get_db_url", return_value="postgresql://test"),
             patch("law_qa_rag.web.app.get_user_by_id", return_value=TEST_USER),
-            patch("law_qa_rag.web.app.get_user_question_history", return_value=make_history()) as history,
+            patch(
+                "law_qa_rag.web.app.get_user_question_history", return_value=make_history()
+            ) as history,
         ):
             self._login_test_user()
             response = self.client.get("/profile")

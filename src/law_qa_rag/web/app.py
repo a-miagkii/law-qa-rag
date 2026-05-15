@@ -123,7 +123,9 @@ async def ask(request: Request) -> HTMLResponse | JSONResponse | RedirectRespons
     )
 
 
-@app.get("/answers/{answer_id}", response_class=HTMLResponse, response_model=None, name="answer_page")
+@app.get(
+    "/answers/{answer_id}", response_class=HTMLResponse, response_model=None, name="answer_page"
+)
 async def answer_page(request: Request, answer_id: int) -> HTMLResponse | RedirectResponse:
     """Показывает сохраненный ответ и цитаты."""
     current_user = get_current_user(request)
@@ -555,11 +557,7 @@ def _template_context(request: Request, **extra: Any) -> dict[str, Any]:
         or request.query_params.get("auth") in {"login", "register"}
         or bool(auth_error)
     )
-    auth_next = _safe_next(
-        extra.pop("auth_next", None)
-        or request.query_params.get("next")
-        or "/"
-    )
+    auth_next = _safe_next(extra.pop("auth_next", None) or request.query_params.get("next") or "/")
     context = {
         "request": request,
         "examples": EXAMPLE_QUESTIONS,
