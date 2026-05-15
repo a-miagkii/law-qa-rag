@@ -240,7 +240,9 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("Показать полностью", response.text)
         self.assertIn("citation-quote-details", response.text)
         self.assertIn("Открыть первоисточник", response.text)
-        self.assertNotIn("Параметры запуска", response.text)
+        self.assertIn("Параметры запуска", response.text)
+        self.assertIn("weighted_hybrid", response.text)
+        self.assertIn("answer_v1", response.text)
 
     def test_answer_page_requires_login(self) -> None:
         response = self.client.get("/answers/42", follow_redirects=False)

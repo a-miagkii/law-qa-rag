@@ -31,6 +31,28 @@
           </div>
         </article>
 
+        <article class="card">
+          <h3>Параметры запуска</h3>
+          <dl class="answer-meta">
+            <div>
+              <dt>Метод retrieval</dt>
+              <dd>{{ page.answer.retrieval_method or "не указан" }}</dd>
+            </div>
+            <div>
+              <dt>Модель</dt>
+              <dd>{{ page.answer.llm_model or "не указана" }}</dd>
+            </div>
+            <div>
+              <dt>Prompt</dt>
+              <dd>{{ page.answer.prompt_version or "не указан" }}</dd>
+            </div>
+            <div>
+              <dt>Latency</dt>
+              <dd>{{ page.answer.latency_ms }} мс</dd>
+            </div>
+          </dl>
+        </article>
+
         <article class="card feedback-card">
           <h3>Оценка ответа</h3>
           {% if feedback_saved %}
