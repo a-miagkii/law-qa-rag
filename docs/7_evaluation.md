@@ -56,9 +56,6 @@ Retrieval-эксперимент сравнивает три режима пои
 - `eval/results/retrieval/summary_metrics.csv` - сводные метрики.
 - `eval/results/retrieval/error_analysis.csv` - таблица ошибок для ручного анализа.
 - `eval/results/retrieval/config_snapshot.yaml` - зафиксированные параметры прогона.
-- `eval/results/retrieval/figures/figure_7_hit_at_10.svg` - рисунок 7, сравнение Hit@10.
-- `eval/results/retrieval/figures/figure_8_recall_at_10.svg` - рисунок 8, сравнение Recall@10.
-- `eval/results/retrieval/figures/figure_9_median_latency.svg` - рисунок 9, сравнение медианного времени retrieval.
 
 Основные метрики:
 
@@ -127,8 +124,7 @@ Baseline-прогон выполнен на 50 вопросах. В сохран
 Не стоит хранить:
 
 - временные debug-ответы LLM;
-- `eval/results/llm_debug/*`;
-- `eval/results/last_invalid_llm_response.txt`;
+- `logs/llm_debug/*`;
 - локальные служебные файлы вроде `.DS_Store`;
 - короткие пробные прогоны, которые не используются в ВКР.
 
