@@ -2,6 +2,8 @@
 
 Документ описывает экспериментальную оценку RAG-системы: проверку качества retrieval и проверку генерации ответов на наборе из 50 вопросов.
 
+Результаты экспериментальной оценки сохраняются в файловом контуре проекта в форматах JSONL/CSV/YAML. PostgreSQL используется для хранения корпуса, фрагментов, пользователей, запросов, ответов, цитат и обратной связи. Таблицы для хранения экспериментов в актуальной схеме БД не используются.
+
 ## Данные
 
 Файлы эксперимента лежат в `eval/`.
@@ -54,6 +56,9 @@ Retrieval-эксперимент сравнивает три режима пои
 - `eval/results/retrieval/summary_metrics.csv` - сводные метрики.
 - `eval/results/retrieval/error_analysis.csv` - таблица ошибок для ручного анализа.
 - `eval/results/retrieval/config_snapshot.yaml` - зафиксированные параметры прогона.
+- `eval/results/retrieval/figures/figure_7_hit_at_10.svg` - рисунок 7, сравнение Hit@10.
+- `eval/results/retrieval/figures/figure_8_recall_at_10.svg` - рисунок 8, сравнение Recall@10.
+- `eval/results/retrieval/figures/figure_9_median_latency.svg` - рисунок 9, сравнение медианного времени retrieval.
 
 Основные метрики:
 
@@ -92,7 +97,7 @@ Baseline-прогон выполнен на 50 вопросах. В сохран
   --out-dir eval/results/generation
 ```
 
-После запуска итоговый JSONL можно хранить как `generation_all_v1.jsonl`, а таблицу ручной оценки - как `generation_all_v1.csv`.
+После запуска скрипт сохраняет итоговый JSONL как `generation_all_v1.jsonl`, а таблицу ручной оценки - как `generation_all_v1.csv`.
 
 Результаты:
 
